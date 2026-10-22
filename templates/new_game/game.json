@@ -1,0 +1,21 @@
+{
+  "format": "conker-maker-project-v1",
+  "title": "Conker's Other Bad Day",
+  "author": "",
+  "version": "0.1.0",
+  "description": "An unofficial sequel to Conker's Bad Fur Day, made with Conker Maker.",
+  "start_level": "test_level",
+  "chapters": [
+    {
+      "id": "chapter_1",
+      "title": "Chapter 1: The Morning After",
+      "levels": [
+        "test_level",
+        "the_barn"
+      ]
+    }
+  ],
+  "flags": [
+    "met_barkeep"
+  ]
+}

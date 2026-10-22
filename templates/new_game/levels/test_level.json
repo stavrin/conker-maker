@@ -1,0 +1,280 @@
+{
+  "format": "conker-maker-level-v1",
+  "id": "test_level",
+  "title": "Hungover Hill",
+  "base": {
+    "kind": "blank",
+    "ground": {
+      "size": [
+        60,
+        60
+      ],
+      "color": "#5f8a3a"
+    }
+  },
+  "music": {
+    "rom_track": 0
+  },
+  "objects": [
+    {
+      "uid": "start",
+      "type": "player_start",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {}
+    },
+    {
+      "uid": "barkeep",
+      "type": "npc",
+      "position": [
+        6,
+        0,
+        -6
+      ],
+      "rotation_y": 200,
+      "scale": 1.0,
+      "props": {
+        "name": "Barkeep",
+        "model": null,
+        "dialogue": [
+          "Rough night, squirrel?",
+          "Your tab's still open, by the way.",
+          "Bring me 30 bucks and I'll tell you where your memory went."
+        ]
+      }
+    },
+    {
+      "uid": "cash_1",
+      "type": "cash",
+      "position": [
+        -4,
+        0,
+        -4
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "amount": 10
+      }
+    },
+    {
+      "uid": "cash_2",
+      "type": "cash",
+      "position": [
+        -8,
+        0,
+        -8
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "amount": 10
+      }
+    },
+    {
+      "uid": "cash_3",
+      "type": "cash",
+      "position": [
+        10,
+        3.5,
+        10
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "amount": 10
+      }
+    },
+    {
+      "uid": "step_1",
+      "type": "platform",
+      "position": [
+        6,
+        0.75,
+        6
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "size": [
+          4,
+          0.5,
+          4
+        ],
+        "move": [
+          0,
+          0,
+          0
+        ],
+        "period": 4.0
+      }
+    },
+    {
+      "uid": "step_2",
+      "type": "platform",
+      "position": [
+        10,
+        2.75,
+        10
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "size": [
+          4,
+          0.5,
+          4
+        ],
+        "move": [
+          0,
+          0,
+          4
+        ],
+        "period": 3.0
+      }
+    },
+    {
+      "uid": "snack",
+      "type": "chocolate",
+      "position": [
+        -6,
+        0,
+        6
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {}
+    },
+    {
+      "uid": "pad",
+      "type": "context_pad",
+      "position": [
+        0,
+        0,
+        -12
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "hint": "Press B to... think about it"
+      }
+    },
+    {
+      "uid": "door",
+      "type": "level_exit",
+      "position": [
+        0,
+        0,
+        -22
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "target_level": "the_barn",
+        "target_spawn": "front"
+      }
+    },
+    {
+      "uid": "door_zone",
+      "type": "trigger_zone",
+      "position": [
+        0,
+        0,
+        -16
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "size": [
+          8,
+          3,
+          4
+        ],
+        "once": true
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "e1",
+      "name": "Intro",
+      "when": {
+        "type": "level_start"
+      },
+      "do": [
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Ugh. Not again. Where am I this time?"
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "name": "Barkeep chat",
+      "when": {
+        "type": "talk_to",
+        "object": "barkeep"
+      },
+      "do": [
+        {
+          "type": "set_flag",
+          "flag": "met_barkeep"
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "name": "B pad",
+      "when": {
+        "type": "press_pad",
+        "object": "pad"
+      },
+      "do": [
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Nope. Brain's still asleep."
+        },
+        {
+          "type": "give_cash",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": "e4",
+      "name": "All cash",
+      "when": {
+        "type": "all_cash"
+      },
+      "do": [
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Thirty quid. That'll do."
+        }
+      ]
+    },
+    {
+      "id": "e5",
+      "name": "Near the door",
+      "when": {
+        "type": "enter_zone",
+        "object": "door_zone"
+      },
+      "do": [
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "The barn... why does that ring a bell?"
+        }
+      ]
+    }
+  ]
+}

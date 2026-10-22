@@ -1,0 +1,355 @@
+{
+  "format": "conker-maker-catalog-v1",
+  "note": "The things you can place in a level. Shared by the Conker Maker app (palette, inspector, preview) and cmtools (validation, packing). 'props' lists each type's settings with its default; 'kind' tells the inspector what control to show. 'rom_model' is the model a type shows by default once you've imported your ROM's assets (catalog ids like b01-0000-00 = bank 01, entry 0, segment 0).",
+  "objects": {
+    "player_start": {
+      "label": "Conker Start",
+      "group": "Level",
+      "unique": true,
+      "color": "#e8a33c",
+      "shape": "capsule",
+      "help": "Where Conker appears when the level starts. Every level needs exactly one.",
+      "props": {},
+      "rom_model": "b01-0000-00"
+    },
+    "spawn_point": {
+      "label": "Spawn Point",
+      "group": "Level",
+      "color": "#d68a2a",
+      "shape": "disc",
+      "help": "A named place another level's exit can send Conker to.",
+      "props": {
+        "name": {
+          "kind": "text",
+          "default": "spawn"
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      }
+    },
+    "level_exit": {
+      "label": "Level Exit",
+      "group": "Level",
+      "color": "#7b4fd6",
+      "shape": "portal",
+      "help": "Walk into it to go to another level.",
+      "props": {
+        "target_level": {
+          "kind": "level",
+          "default": ""
+        },
+        "target_spawn": {
+          "kind": "text",
+          "default": ""
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      }
+    },
+    "checkpoint": {
+      "label": "Checkpoint",
+      "group": "Level",
+      "color": "#3cb4e8",
+      "shape": "flag",
+      "help": "Conker comes back here after losing a life.",
+      "props": {
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      },
+      "rom_model": "b03-0089-00"
+    },
+    "trigger_zone": {
+      "label": "Trigger Zone",
+      "group": "Logic",
+      "color": "#41d67a",
+      "shape": "box",
+      "translucent": true,
+      "help": "An invisible box. Use it in Events: 'When Conker enters ...'.",
+      "props": {
+        "size": {
+          "kind": "vec3",
+          "default": [
+            4,
+            3,
+            4
+          ]
+        },
+        "once": {
+          "kind": "bool",
+          "default": true
+        }
+      }
+    },
+    "context_pad": {
+      "label": "Context Pad (B)",
+      "group": "Logic",
+      "color": "#d63c3c",
+      "shape": "pad",
+      "help": "The famous B-button pad. Pressing B on it fires its event.",
+      "props": {
+        "hint": {
+          "kind": "text",
+          "default": "Press B"
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      },
+      "rom_model": "b04-0018-09"
+    },
+    "cash": {
+      "label": "Wad of Cash",
+      "group": "Pickups",
+      "color": "#4caf50",
+      "shape": "cash",
+      "help": "Money for Conker's wallet.",
+      "props": {
+        "amount": {
+          "kind": "int",
+          "default": 10,
+          "min": 1,
+          "max": 9999
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      },
+      "rom_model": "b09-0164-00"
+    },
+    "chocolate": {
+      "label": "Chocolate",
+      "group": "Pickups",
+      "color": "#7a4a2a",
+      "shape": "block",
+      "help": "Restores a chunk of health.",
+      "props": {
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      },
+      "rom_model": "b03-0003-00"
+    },
+    "squirrel_tail": {
+      "label": "Squirrel Tail",
+      "group": "Pickups",
+      "color": "#c97b3b",
+      "shape": "tail",
+      "help": "An extra life.",
+      "props": {
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      },
+      "rom_model": "b09-0162-00"
+    },
+    "npc": {
+      "label": "Character",
+      "group": "Characters",
+      "color": "#f0d84c",
+      "shape": "capsule",
+      "help": "Someone to talk to. Fill in their lines; Conker talks to them with B.",
+      "props": {
+        "name": {
+          "kind": "text",
+          "default": "Stranger"
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        },
+        "dialogue": {
+          "kind": "lines",
+          "default": [
+            "Alright?"
+          ]
+        }
+      }
+    },
+    "enemy": {
+      "label": "Enemy",
+      "group": "Characters",
+      "color": "#b02a2a",
+      "shape": "capsule",
+      "help": "A baddie that wanders near where it's placed and hurts Conker on contact.",
+      "props": {
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        },
+        "health": {
+          "kind": "int",
+          "default": 1,
+          "min": 1,
+          "max": 99
+        },
+        "patrol_radius": {
+          "kind": "float",
+          "default": 4.0,
+          "min": 0,
+          "max": 50
+        }
+      }
+    },
+    "prop": {
+      "label": "Prop",
+      "group": "Scenery",
+      "color": "#8d8d8d",
+      "shape": "box",
+      "help": "Scenery from your ROM: crates, barrels, signs, fences, trees, bits of levels. Pick one with 'Choose from ROM'.",
+      "props": {
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        },
+        "size": {
+          "kind": "vec3",
+          "default": [
+            2,
+            2,
+            2
+          ]
+        },
+        "solid": {
+          "kind": "bool",
+          "default": true
+        }
+      }
+    },
+    "platform": {
+      "label": "Platform",
+      "group": "Scenery",
+      "color": "#6b8e5a",
+      "shape": "box",
+      "help": "Something to stand on. Give it a move distance to make it slide back and forth.",
+      "props": {
+        "size": {
+          "kind": "vec3",
+          "default": [
+            4,
+            0.5,
+            4
+          ]
+        },
+        "move": {
+          "kind": "vec3",
+          "default": [
+            0,
+            0,
+            0
+          ]
+        },
+        "period": {
+          "kind": "float",
+          "default": 4.0,
+          "min": 0.5,
+          "max": 60
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      }
+    }
+  },
+  "player": {
+    "model": "b01-0000-00",
+    "note": "Conker's animations by logical animation pair in the ROM (bank-02 routes). Found by looking; change them here if one looks wrong.",
+    "animations": {
+      "idle": "pair_0000_",
+      "run": "pair_0001_",
+      "walk": "pair_0002_",
+      "jump": "pair_0003_",
+      "hover": "pair_0020_"
+    }
+  },
+  "events": {
+    "triggers": {
+      "level_start": {
+        "label": "When the level starts",
+        "object": false
+      },
+      "enter_zone": {
+        "label": "When Conker enters",
+        "object": "trigger_zone"
+      },
+      "press_pad": {
+        "label": "When Conker presses B on",
+        "object": "context_pad"
+      },
+      "talk_to": {
+        "label": "After Conker talks to",
+        "object": "npc"
+      },
+      "defeat": {
+        "label": "When Conker defeats",
+        "object": "enemy"
+      },
+      "all_cash": {
+        "label": "When all the cash is collected",
+        "object": false
+      }
+    },
+    "actions": {
+      "say": {
+        "label": "Show a line of dialogue",
+        "fields": {
+          "speaker": "text",
+          "text": "text"
+        }
+      },
+      "give_cash": {
+        "label": "Give Conker cash",
+        "fields": {
+          "amount": "int"
+        }
+      },
+      "show": {
+        "label": "Show an object",
+        "fields": {
+          "object": "object"
+        }
+      },
+      "hide": {
+        "label": "Hide an object",
+        "fields": {
+          "object": "object"
+        }
+      },
+      "set_flag": {
+        "label": "Set a story flag",
+        "fields": {
+          "flag": "text"
+        }
+      },
+      "goto_level": {
+        "label": "Go to a level",
+        "fields": {
+          "level": "level",
+          "spawn": "text"
+        }
+      },
+      "play_music": {
+        "label": "Play music from the ROM",
+        "fields": {
+          "track": "int"
+        }
+      },
+      "wait": {
+        "label": "Wait",
+        "fields": {
+          "seconds": "float"
+        }
+      }
+    }
+  }
+}

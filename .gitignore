@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+runtime_mod/build/
+# Games you build contain your ROM: never commit them.
+*.z64
+*.v64
+*.n64
+build/
+
+# The asset extractors cmtools downloads on first import.
+third_party/

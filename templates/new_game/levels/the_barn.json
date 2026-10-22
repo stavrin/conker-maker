@@ -1,0 +1,113 @@
+{
+  "format": "conker-maker-level-v1",
+  "id": "the_barn",
+  "title": "The Barn",
+  "base": {
+    "kind": "blank",
+    "ground": {
+      "size": [
+        40,
+        40
+      ],
+      "color": "#8a6a3a"
+    }
+  },
+  "music": {
+    "rom_track": 0
+  },
+  "objects": [
+    {
+      "uid": "start",
+      "type": "player_start",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {}
+    },
+    {
+      "uid": "front",
+      "type": "spawn_point",
+      "position": [
+        0,
+        0,
+        12
+      ],
+      "rotation_y": 180,
+      "scale": 1.0,
+      "props": {
+        "name": "front"
+      }
+    },
+    {
+      "uid": "bad_hay",
+      "type": "enemy",
+      "position": [
+        0,
+        0,
+        -8
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "model": null,
+        "health": 1,
+        "patrol_radius": 5.0
+      }
+    },
+    {
+      "uid": "crate",
+      "type": "prop",
+      "position": [
+        6,
+        1,
+        0
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "model": null,
+        "size": [
+          2,
+          2,
+          2
+        ],
+        "solid": true
+      }
+    },
+    {
+      "uid": "home",
+      "type": "level_exit",
+      "position": [
+        0,
+        0,
+        16
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "target_level": "test_level",
+        "target_spawn": ""
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "e1",
+      "name": "Arrive",
+      "when": {
+        "type": "level_start"
+      },
+      "do": [
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Smells like trouble. And hay."
+        }
+      ]
+    }
+  ]
+}

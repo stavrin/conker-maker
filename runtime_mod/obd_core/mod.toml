@@ -1,0 +1,39 @@
+# Conker Maker runtime (obd_core): a mod for Conker's Bad Fur Day: Recompiled.
+#
+# Plays games made with Conker Maker. A built game's ROM carries the game package in the
+# ROM's free space (see conker_maker/cmtools/package.py); this mod finds it and, as it
+# grows, turns its levels, objects and events into the real game's.
+#
+# v0.1 (skeleton): finds and announces the package, and logs scene changes to the
+# console, which is how the scene IDs in catalog/scenes.json get mapped.
+
+[manifest]
+id = "conker_maker_runtime"
+version = "0.1.0"
+display_name = "Conker Maker Runtime"
+description = """
+Plays games made with Conker Maker. Load a Conker Maker game's ROM with the \
+launcher's Add ROM, enable this mod, and start the game. This early version only \
+detects the game and logs scene changes for development."""
+short_description = "Plays games made with Conker Maker."
+authors = [ "Conker Maker" ]
+game_id = "conker"
+minimum_recomp_version = "0.1.0"
+dependencies = []
+optional_dependencies = []
+native_libraries = []
+
+[inputs]
+elf_path = "build/mod.elf"
+mod_filename = "conker_maker_runtime"
+func_reference_syms_file = "../syms/conker.us.syms.toml"
+data_reference_syms_files = [ "../syms/conker.us.datasyms.toml" ]
+additional_files = []
+
+[[manifest.config_options]]
+id = "log_scenes"
+name = "Log Scene Changes"
+description = "Prints each scene the game loads to the console (for Conker Maker development)."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "On"

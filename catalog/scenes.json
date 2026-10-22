@@ -1,0 +1,146 @@
+{
+ "format": "conker-maker-scenes-v1",
+ "note": "Bad Fur Day scenes a level can be based on, by their index in the game's chapter table (D_80087430: 204 entries). Names are the table's own. Starter list from CBFD-Recompiled's achievements; cmtools will read the full table from the ROM.",
+ "scenes": [
+  {
+   "chapter_index": 5,
+   "name": "Training - Frying Pan"
+  },
+  {
+   "chapter_index": 10,
+   "name": "The Queen's lost her Home!"
+  },
+  {
+   "chapter_index": 28,
+   "name": "Poo Mountain Big Beetle"
+  },
+  {
+   "chapter_index": 42,
+   "name": "Windmill Exploded"
+  },
+  {
+   "chapter_index": 45,
+   "name": "Feed Marvin"
+  },
+  {
+   "chapter_index": 55,
+   "name": "Sunflower Babe"
+  },
+  {
+   "chapter_index": 59,
+   "name": "Leap Of Faith"
+  },
+  {
+   "chapter_index": 60,
+   "name": "Frankie Wants to Poke You!"
+  },
+  {
+   "chapter_index": 61,
+   "name": "Burn The Bats"
+  },
+  {
+   "chapter_index": 67,
+   "name": "Terminator Haystack"
+  },
+  {
+   "chapter_index": 68,
+   "name": "Barn Arena Escape"
+  },
+  {
+   "chapter_index": 69,
+   "name": "Meet the Toff Catfish"
+  },
+  {
+   "chapter_index": 80,
+   "name": "Through The Clang's Domain"
+  },
+  {
+   "chapter_index": 85,
+   "name": "The Vampire Bats Tower"
+  },
+  {
+   "chapter_index": 87,
+   "name": "Rock Rollin' Cavern"
+  },
+  {
+   "chapter_index": 96,
+   "name": "Worship Me"
+  },
+  {
+   "chapter_index": 107,
+   "name": "Rock Solid"
+  },
+  {
+   "chapter_index": 112,
+   "name": "MEET WEASEL BOSS"
+  },
+  {
+   "chapter_index": 117,
+   "name": "Enter Poo Cabin"
+  },
+  {
+   "chapter_index": 123,
+   "name": "Poovarotti Sings"
+  },
+  {
+   "chapter_index": 124,
+   "name": "Poovarotti Flush"
+  },
+  {
+   "chapter_index": 131,
+   "name": "Ugga Lava Race"
+  },
+  {
+   "chapter_index": 135,
+   "name": "Boiler Big Nuts Boss"
+  },
+  {
+   "chapter_index": 138,
+   "name": "Beach Assault Bloodbath"
+  },
+  {
+   "chapter_index": 148,
+   "name": "Saved Private Rodent"
+  },
+  {
+   "chapter_index": 155,
+   "name": "A Tank Too Far"
+  },
+  {
+   "chapter_index": 162,
+   "name": "War Boss"
+  },
+  {
+   "chapter_index": 166,
+   "name": "Horror Intro"
+  },
+  {
+   "chapter_index": 169,
+   "name": "Count Batula"
+  },
+  {
+   "chapter_index": 171,
+   "name": "Zombie Fest"
+  },
+  {
+   "chapter_index": 175,
+   "name": "Bank Entrance"
+  },
+  {
+   "chapter_index": 178,
+   "name": "Bank Vault"
+  },
+  {
+   "chapter_index": 182,
+   "name": "Fight The Alien"
+  },
+  {
+   "chapter_index": 191,
+   "name": "Introduction"
+  },
+  {
+   "chapter_index": 202,
+   "name": "First Death"
+  }
+ ]
+}
