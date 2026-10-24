@@ -7,7 +7,9 @@ local *asset library* that the app shows in its palette, inspector and preview:
       catalog.json            every model and scene, with names and categories
       status.json             progress while importing (the app polls it)
       models/us-bank-NN-preview/geometry/*.gltf   (+ .bin, ../textures/*.png)
-      scenes/geometry/scene-NN.gltf               composed level scenes
+      levels/geometry/scene-NN.gltf               complete level scenes (models placed as in the game)
+      audio/source, audio/mp3, audio/cues          sound bank, music sequences, MP3 streams, lip cues
+      audio/preview/music/NNNN.wav                 music rendered with the game's own samples
 
 The library lives in the user's app-data folder (not in a project), one per ROM, so it's
 never committed or shared by accident.
@@ -35,7 +37,7 @@ from . import rom as romlib
 DECOMP_REPO = "DevOldSchool/conkers-bfd-decomp"
 DECOMP_COMMIT = "4288820283c66edb65f41e20dc13c89cd8c46e05"
 CATALOG_FORMAT = "conker-maker-rom-library-v1"
-LIBRARY_VERSION = 1
+LIBRARY_VERSION = 2   # 2: complete levels (levels/), level names
 # One N64 unit is about a centimetre: Conker comes out about 1.6 m tall at this scale.
 WORLD_SCALE = 0.01
 
@@ -52,6 +54,7 @@ BANK_LABELS = {1: "Characters & animated", 3: "Objects", 4: "Level pieces", 9: "
 CATEGORY_LABELS = {
     "characters": "Characters", "collectables": "Pickups", "scene-items": "Scenery",
     "weapons": "Weapons", "parts-effects": "Parts & effects",
+    "level-pieces": "Level pieces (unnamed)", "other-objects": "Other objects (unnamed)",
 }
 
 
@@ -157,6 +160,17 @@ def prepare_decomp(decomp: Path) -> None:
     marker.write_text(PATCH_LEVEL + "\n", encoding="utf-8")
 
 
+def ensure_numpy(log) -> bool:
+    """The music renderer needs NumPy: use it if it's there, otherwise try installing it."""
+    check = [sys.executable, "-c", "import numpy"]
+    if subprocess.run(check, capture_output=True).returncode == 0:
+        return True
+    install = subprocess.run([sys.executable, "-m", "pip", "install", "--user", "--quiet", "numpy"],
+                             capture_output=True, text=True)
+    log.write(f"$ pip install numpy\n{install.stdout}{install.stderr}\n")
+    return subprocess.run(check, capture_output=True).returncode == 0
+
+
 def _run(decomp: Path, args: list[str], log, alias: str = "") -> None:
     command = [sys.executable, str(SHIM), *args]
     # UTF-8 mode: on Windows, files opened without an encoding would otherwise be read as cp1252.
@@ -181,7 +195,7 @@ def import_assets(rom_path: str | Path, library: str | Path | None = None, decom
     library = (Path(library) if library else default_library(rom)).resolve()
     library.mkdir(parents=True, exist_ok=True)
     status_path = library / "status.json"
-    steps = 1 + len(TEXTURE_FAMILIES) + len(MODEL_BANKS) + (1 if scenes else 0) + 1
+    steps = 1 + len(TEXTURE_FAMILIES) + len(MODEL_BANKS) + (1 if scenes else 0) + 2 + 1
     state = {"state": "running", "step": 0, "steps": steps, "message": "", "started": time.time(), "warnings": []}
     us_sha1 = next(sha for sha, (kind, _) in romlib.KNOWN.items() if kind == "us")
     alias = "" if rom.sha1 == us_sha1 else f"{rom.sha1}:{us_sha1}"
@@ -229,19 +243,34 @@ def import_assets(rom_path: str | Path, library: str | Path | None = None, decom
                 if not attempt(f"models (bank {bank})", args, log):
                     shutil.rmtree(out, ignore_errors=True)
             if scenes:
-                progress("Composing level scenes (the slowest step)")
-                shutil.rmtree(library / "scenes", ignore_errors=True)
+                progress("Building the levels (the slowest step)")
+                shutil.rmtree(library / "levels", ignore_errors=True)
+                shutil.rmtree(library / "scenes", ignore_errors=True)   # the older, partial set
                 # The composer only accepts model folders inside its own checkout: lend it ours.
                 lent = decomp_dir / "build" / "conker-maker-models"
                 shutil.rmtree(lent, ignore_errors=True)
                 lent.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(models), str(lent))
                 try:
-                    if not attempt("level scenes", ["scripts/model_assets.py", "scene-assemblies", "--rom", str(rom_file),
-                                                    "--model-root", str(lent), "--output", str(library / "scenes")], log):
-                        shutil.rmtree(library / "scenes", ignore_errors=True)
+                    if not attempt("levels", [str(Path(__file__).resolve().parent / "decomp_levels.py"), str(rom_file),
+                                              str(lent), str(library / "levels")], log):
+                        shutil.rmtree(library / "levels", ignore_errors=True)
                 finally:
                     shutil.move(str(lent), str(models))
+            progress("Extracting music, voices and sounds")
+            audio = library / "audio"
+            shutil.rmtree(audio, ignore_errors=True)
+            rom_arg = ["--rom", str(rom_file)]
+            attempt("sound bank and music", ["scripts/audio_assets.py", "extract", *rom_arg, "--output", str(audio / "source")], log)
+            attempt("MP3 streams", ["scripts/mp3_assets.py", "extract", *rom_arg, "--output", str(audio / "mp3")], log)
+            attempt("voice cues", ["scripts/mp3_assets.py", "cue-extract", *rom_arg, "--output", str(audio / "cues")], log)
+            progress("Playing the music through the game's instruments")
+            if (audio / "source" / "manifest.json").is_file():
+                if ensure_numpy(log):
+                    attempt("music renders", ["scripts/audio_assets.py", "soundtrack-preview", "--input", str(audio / "source"),
+                                              "--mp3-input", str(audio / "mp3"), "--output", str(audio / "preview")], log)
+                else:
+                    state["warnings"].append("music renders: needs NumPy (python -m pip install numpy), so music is MIDI only")
         progress("Building the catalog")
         catalog = build_catalog(library, decomp_dir, rom)
         if not catalog["models"]:
@@ -297,6 +326,69 @@ def _scene_names(decomp: Path) -> dict[int, str]:
     return names
 
 
+def audio_catalog(library: Path) -> dict:
+    """Music (named sequences), streamed music, voices and other streams, sound samples."""
+    audio = library / "audio"
+    result = {"music": [], "music_streams": [], "streams": [], "samples": []}
+    preview = audio / "preview" / "manifest.json"
+    source = audio / "source" / "manifest.json"
+    if preview.is_file():
+        data = json.loads(preview.read_text(encoding="utf-8"))
+        for seq in data.get("sequences", []):
+            result["music"].append({"index": seq["index"], "name": seq.get("name") or f"Unidentified {seq['index']:04d}",
+                                    "category": seq.get("category") or ("Unidentified" if not seq.get("name") else "Other"),
+                                    "confidence": seq.get("confidence"), "note": seq.get("note", ""),
+                                    "wav": f"audio/preview/{seq['file']}" if seq.get("file") else None,
+                                    "midi": f"audio/preview/{seq['midi_file']}" if seq.get("midi_file") else None})
+        for stream in data.get("music_streams", []):
+            result["music_streams"].append({"index": stream["index"], "name": stream.get("name"),
+                                            "confidence": stream.get("confidence")})
+    elif source.is_file():   # no renders (no NumPy): MIDI files and the names from the decomp's labels
+        labels = {}
+        label_path = default_decomp_dir() / "config" / "audio-sequences.json"
+        if label_path.is_file():
+            labels = {s["index"]: s for s in json.loads(label_path.read_text(encoding="utf-8")).get("sequences", [])}
+        for cseq in sorted((audio / "source" / "sequences").glob("*.cseq")):
+            index = int(cseq.stem)
+            label = labels.get(index, {})
+            result["music"].append({"index": index, "name": label.get("name") or f"Unidentified {index:04d}",
+                                    "category": label.get("category") or "Other", "confidence": label.get("confidence"),
+                                    "note": label.get("note", ""), "wav": None, "midi": None,
+                                    "cseq": f"audio/source/sequences/{cseq.name}"})
+    cues = audio / "cues" / "manifest.json"
+    if cues.is_file():
+        named = {s["index"] for s in result["music_streams"]}
+        for stream in json.loads(cues.read_text(encoding="utf-8")).get("streams", []):
+            index = stream["entry_index"]
+            kind = "music" if index in named else ("voice" if stream.get("cue_count") else "other")
+            result["streams"].append({"index": index, "kind": kind, "seconds": round(stream.get("duration_seconds", 0), 1),
+                                      "file": f"audio/mp3/streams/{index:04d}.mp3"})
+    graph = audio / "source" / "sound-bank-graph.json"
+    if graph.is_file():
+        data = json.loads(graph.read_text(encoding="utf-8"))
+        instrument_of = {s["index"]: s["instrument_index"] for s in data.get("sounds", [])}
+        for sample in data.get("samples", []):
+            instruments = sorted({instrument_of.get(w, -1) for w in sample.get("wavetable_indices", [])})
+            result["samples"].append({"index": sample["index"], "instruments": instruments,
+                                      "wav": f"audio/preview/samples/{sample['index']:04d}.wav"})
+    return result
+
+
+def level_names() -> dict:
+    """Your names for levels (catalog/level_names.json), by scene index: edit it to rename them."""
+    path = ROOT / "catalog" / "level_names.json"
+    if not path.is_file():
+        return {}
+    return {k: v for k, v in json.loads(path.read_text(encoding="utf-8")).get("names", {}).items() if v}
+
+
+def level_descriptions() -> dict:
+    path = ROOT / "catalog" / "level_names.json"
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8")).get("descriptions", {})
+
+
 def build_catalog(library: Path, decomp: Path, rom: romlib.Rom) -> dict:
     labels = _labels(decomp)
     models = []
@@ -311,7 +403,8 @@ def build_catalog(library: Path, decomp: Path, rom: romlib.Rom) -> dict:
             b, entry, segment = int(bank), record["bank_entry"], record["segment"]
             mid = model_id(b, entry, segment)
             label = labels.get(mid, {})
-            category = label.get("category") or ("characters" if b == 1 else "scene-items")
+            # Unnamed pieces get their own groups so the named ones are easy to find.
+            category = label.get("category") or ("characters" if b == 1 else "level-pieces" if b == 4 else "other-objects")
             models.append({
                 "id": mid, "bank": b, "entry": entry, "segment": segment,
                 "name": label.get("name") or f"{BANK_LABELS[b]} {entry:04d}/{segment:02d}",
@@ -324,23 +417,31 @@ def build_catalog(library: Path, decomp: Path, rom: romlib.Rom) -> dict:
     models.sort(key=lambda m: (not m["named"], m["name"].lower()))
     scene_names = _scene_names(decomp)
     scenes = []
-    scenes_manifest = library / "scenes" / "manifest.json"
-    if scenes_manifest.is_file():
-        for record in json.loads(scenes_manifest.read_text(encoding="utf-8")).get("models", []):
-            index = record["scene_index"]
-            path = library / "scenes" / "geometry" / f"scene-{index:02d}.gltf"
-            if path.is_file():
-                scenes.append({"id": f"scene-{index:02d}", "index": index,
-                               "name": scene_names.get(index, f"Scene {index}"),
-                               "path": f"scenes/geometry/scene-{index:02d}.gltf"})
+    nicknames = level_names()
+    extra_descriptions = level_descriptions()
+    levels_index = library / "levels" / "levels.json"
+    if levels_index.is_file():
+        for record in json.loads(levels_index.read_text(encoding="utf-8")).get("levels", []):
+            index = record["index"]
+            if not (library / "levels" / record["path"]).is_file():
+                continue
+            description = (scene_names.get(index) or extra_descriptions.get(str(index))
+                           or "Complete scene (no description yet)")
+            nickname = nicknames.get(str(index), "")
+            scenes.append({"id": f"scene-{index:02d}", "index": index,
+                           "name": f"{nickname} — {description}" if nickname else description,
+                           "nickname": nickname, "description": description,
+                           "reviewed": record.get("reviewed", False), "faces": record.get("faces", 0),
+                           "path": f"levels/{record['path']}"})
     scenes.sort(key=lambda s: s["index"])
+    catalog_audio = audio_catalog(library)
     catalog = {
         "format": CATALOG_FORMAT, "library_version": LIBRARY_VERSION,
         "rom_sha1": rom.sha1, "rom_kind": rom.kind,
         "decomp": {"repo": DECOMP_REPO, "commit": DECOMP_COMMIT},
         "world_scale": WORLD_SCALE,
         "categories": CATEGORY_LABELS,
-        "models": models, "scenes": scenes,
+        "models": models, "scenes": scenes, "audio": catalog_audio,
     }
     (library / "catalog.json").write_text(json.dumps(catalog, indent=1), encoding="utf-8")
     return catalog

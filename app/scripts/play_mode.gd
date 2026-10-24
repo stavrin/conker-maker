@@ -2,8 +2,10 @@
 # things, talk to characters and run your events. It's for checking layouts and logic fast;
 # "Playtest in recomp" runs the real game.
 #
-#   WASD move   Space jump (hold in the air to hover with the tail)   E / B interact
-#   Right mouse or arrow keys turn the camera                         Esc back to the editor
+#   WASD move (Shift: walk)   Space jump (hold in the air to hover with the tail)
+#   F or left click: frying pan   E / B interact   Esc back to the editor
+#   Camera: right-drag or arrow keys to turn, mouse wheel to zoom; it pulls in near walls,
+#   like the recomp's camera (CBFD-Recompiled host/src/mouse_camera.cpp).
 extends Node3D
 
 signal finished
@@ -14,6 +16,15 @@ const JUMP := 9.0
 const GRAVITY := 24.0
 const HOVER_FALL := 1.5
 const HOVER_TIME := 2.0
+const WALK_SPEED := 3.0
+# The game's farthest follow-camera distance: 530 units back and 400 up (D_800A34B0,
+# CBFD-Recompiled mouse_camera.cpp). One unit is a centimetre here. The wheel scales the
+# distance by 1.12 a notch, down to about a third of that.
+const CAM_FAR := Vector2(5.3, 4.0)
+const CAM_NEAR_SHARE := 0.32
+const CAM_ZOOM_STEP := 1.12
+const CAM_LOOK_HEIGHT := 1.2
+const CAM_WALL_MARGIN := 0.3
 
 var level := {}
 var level_id := ""
@@ -40,6 +51,18 @@ var _anim_now := ""
 # Conker's animations in the ROM, by logical animation pair (bank 02 routes). Set in catalog/objects.json.
 var PLAYER_ANIMS: Dictionary = App.catalog.get("player", {}).get("animations", {})
 var _mouse_turn := false
+var cam_pitch := 0.0          # extra tilt from the mouse, radians
+var cam_zoom := 0.75          # share of the farthest distance
+var cam_arm := 1.0            # how much of the wanted distance walls allow, eased
+var attacking := false
+var attack_t := 0.0
+var attack_hit_done := false
+var pan: Node3D               # the frying pan, shown during the attack
+var idle_time := 0.0
+var knock_t := 0.0
+var PAN: Dictionary = App.catalog.get("player", {}).get("frying_pan", {})
+var music: AudioStreamPlayer
+var music_index := -1
 
 
 func _ready() -> void:
@@ -76,6 +99,9 @@ func _ready() -> void:
 	dialogue.add_child(dialogue_label)
 	dialogue.visible = false
 	layer.add_child(dialogue)
+	music = AudioStreamPlayer.new()
+	music.volume_db = -6.0
+	add_child(music)
 	camera = Camera3D.new()
 	camera.fov = 65
 	add_child(camera)
@@ -100,12 +126,16 @@ func start(id: String, spawn := "") -> void:
 		var node: Node3D
 		if obj.type in ["platform", "prop"] and obj.props.get("solid", true):
 			node = _solid(obj, spec)
+		elif obj.type in ["npc", "context_pad", "enemy"]:
+			node = _bodied(obj, spec)
 		else:
 			node = Visuals.build(obj, spec, false)
 		if obj.type == "trigger_zone":
 			node.visible = false
 		if obj.type in ["player_start", "spawn_point"]:
 			node.visible = false
+		for tag in node.find_children("Tag", "Label3D", true, false):   # name tags are for editing
+			tag.visible = false
 		add_child(node)
 		objects[obj.uid] = {"obj": obj, "node": node, "home": node.position, "t": 0.0}
 		if obj.type == "player_start" and spawn == "":
@@ -116,6 +146,7 @@ func start(id: String, spawn := "") -> void:
 			start_turn = node.rotation.y
 	_make_player(start_pos, start_turn)
 	respawn = start_pos
+	_play_music(int(level.get("music", {}).get("rom_track", 0)))
 	_update_hud()
 	_run_trigger("level_start", "")
 
@@ -143,6 +174,32 @@ func _solid(obj: Dictionary, spec: Dictionary) -> Node3D:
 	return body
 
 
+# Characters, B pads and enemies are solid: Conker bumps into them and stands on pads.
+func _bodied(obj: Dictionary, spec: Dictionary) -> Node3D:
+	var body: CollisionObject3D = CharacterBody3D.new() if obj.type == "enemy" else StaticBody3D.new()
+	body.name = "obj_" + obj.uid
+	var visual := Visuals.build(obj, spec, false)
+	visual.position = Vector3.ZERO
+	visual.rotation = Vector3.ZERO
+	visual.name = "Look"
+	body.add_child(visual)
+	var shape := CollisionShape3D.new()
+	if obj.type == "context_pad":
+		var box := BoxShape3D.new()
+		box.size = Vector3(2.0, 0.2, 2.0)
+		shape.shape = box
+		shape.position.y = 0.1
+	else:
+		var capsule := CapsuleShape3D.new()
+		capsule.radius = 0.45
+		capsule.height = 1.7
+		shape.shape = capsule
+		shape.position.y = 0.85
+	body.add_child(shape)
+	Visuals.apply_transform(body, obj)
+	return body
+
+
 func _make_player(pos: Vector3, turn: float) -> void:
 	player = CharacterBody3D.new()
 	player.name = "Player"
@@ -160,17 +217,40 @@ func _make_player(pos: Vector3, turn: float) -> void:
 	player.add_child(look)
 	player_anim = Rom.animation_player(look) if look.has_meta("model") else null
 	if player_anim:
-		for key in ["idle", "run", "jump", "hover"]:
+		for key in ["idle", "bored", "walk", "run", "jump", "hover"]:
 			var anim := Rom.find_animation(player_anim, PLAYER_ANIMS.get(key, ""))
 			if anim != "":
 				player_anim.get_animation(anim).loop_mode = Animation.LOOP_LINEAR
+		var attack := Rom.find_animation(player_anim, PLAYER_ANIMS.get("attack", ""))
+		if attack != "":
+			player_anim.get_animation(attack).loop_mode = Animation.LOOP_NONE
+		_play_anim("idle")
+		_attach_pan(look)
 		for child in look.get_children():   # the editor's facing marker isn't needed on the real model
 			if child is MeshInstance3D and child.name != "Selection":
 				child.visible = false
 	player.position = pos + Vector3(0, 0.1, 0)
 	player.rotation.y = turn
 	cam_yaw = turn
+	cam_arm = 1.0
 	add_child(player)
+	camera.position = player.position + Basis(Vector3.UP, cam_yaw) * Vector3(0, 3, 6)
+
+
+# Conker's frying pan, held in his hand (joint 11) and shown only while he swings it.
+func _attach_pan(look: Node3D) -> void:
+	pan = null
+	var found := look.find_children("*", "Skeleton3D", true, false)
+	var model := Rom.instance_model(str(PAN.get("model", "")))
+	if found.is_empty() or model == null:
+		return
+	var skeleton: Skeleton3D = found[0]
+	var hand := BoneAttachment3D.new()
+	hand.bone_name = str(PAN.get("bone", "joint_11"))
+	skeleton.add_child(hand)
+	hand.add_child(model)
+	model.visible = false
+	pan = model
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -184,11 +264,20 @@ func handle_input(event: InputEvent) -> void:
 func _handle(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_mouse_turn = event.pressed
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		cam_zoom = max(CAM_NEAR_SHARE, cam_zoom / CAM_ZOOM_STEP)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		cam_zoom = min(1.0, cam_zoom * CAM_ZOOM_STEP)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_attack()
 	elif event is InputEventMouseMotion and _mouse_turn:
 		cam_yaw -= event.relative.x * 0.006
+		cam_pitch = clamp(cam_pitch + event.relative.y * 0.004, -0.6, 0.5)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			finished.emit()
+		elif event.keycode == KEY_F:
+			_attack()
 		elif event.keycode in [KEY_E, KEY_B, KEY_ENTER]:
 			if busy:
 				_advance = true
@@ -204,15 +293,19 @@ func _physics_process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_RIGHT):
 		cam_yaw -= delta * 2.5
 	_move_platforms(delta)
+	knock_t -= delta
 	var input := Vector2.ZERO
-	if not busy:
+	if not busy and knock_t <= 0.0:
 		input.x = float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A))
 		input.y = float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
 	var dir := (Basis(Vector3.UP, cam_yaw) * Vector3(input.x, 0, input.y))
 	if dir.length() > 1:
 		dir = dir.normalized()
-	player.velocity.x = dir.x * SPEED
-	player.velocity.z = dir.z * SPEED
+	var walking := Input.is_key_pressed(KEY_SHIFT)
+	var speed := (WALK_SPEED if walking else SPEED) * (0.15 if attacking else 1.0)
+	if knock_t <= 0.0:
+		player.velocity.x = dir.x * speed
+		player.velocity.z = dir.z * speed
 	var jump := Input.is_key_pressed(KEY_SPACE) and not busy
 	if player.is_on_floor():
 		hover_left = HOVER_TIME
@@ -229,18 +322,20 @@ func _physics_process(delta: float) -> void:
 		_jump_held_from_floor = false
 	_jump_held = jump
 	player.move_and_slide()
-	if player_anim:
+	_update_attack(delta)
+	if player_anim and not attacking:
 		var state := "idle"
 		if not player.is_on_floor():
 			state = "hover" if player.velocity.y > -HOVER_FALL - 0.1 and player.velocity.y <= 0.0 and jump else "jump"
 		elif dir.length() > 0.1:
-			state = "run"
+			state = "walk" if walking else "run"
+		idle_time = idle_time + delta if state == "idle" else 0.0
+		if state == "idle" and idle_time > 8.0:
+			state = "bored"
 		_play_anim(state)
-	if dir.length() > 0.1:
+	if dir.length() > 0.1 and not attacking:
 		player.get_node("Look").rotation.y = lerp_angle(player.get_node("Look").rotation.y, atan2(-dir.x, -dir.z) - player.rotation.y, 0.25)
-	var target := player.position + Basis(Vector3.UP, cam_yaw) * Vector3(0, 4.5, 9)
-	camera.position = camera.position.lerp(target, 0.12)
-	camera.look_at(player.position + Vector3(0, 1.4, 0))
+	_update_camera(delta)
 	if player.position.y < respawn.y - 60.0:   # fell out of the level
 		_hurt(99)
 	_check_touches(delta)
@@ -248,6 +343,91 @@ func _physics_process(delta: float) -> void:
 
 var _jump_held := false
 var _jump_held_from_floor := false
+
+
+# The follow camera: behind and above Conker at the wheel's distance. When a wall or the
+# ground is between Conker and where the camera wants to be, it comes in quickly and goes
+# back out slowly, as the recomp's own camera does.
+func _update_camera(delta: float) -> void:
+	var look := player.position + Vector3(0, CAM_LOOK_HEIGHT, 0)
+	var back := CAM_FAR * cam_zoom
+	var offset := Basis(Vector3.UP, cam_yaw) * (Basis(Vector3.RIGHT, -cam_pitch) * Vector3(0, back.y, back.x))
+	var wanted := 1.0
+	var query := PhysicsRayQueryParameters3D.create(look, look + offset, 1, [player.get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		wanted = max(0.08, (look.distance_to(hit.position) - CAM_WALL_MARGIN) / offset.length())
+	var rate := 0.5 if wanted < cam_arm else 0.05
+	cam_arm = lerpf(cam_arm, wanted, 1.0 - pow(1.0 - rate, delta * 60.0))
+	var eye := look + offset * cam_arm
+	camera.position = camera.position.lerp(eye, 1.0 - pow(0.85, delta * 60.0))
+	if camera.position.distance_to(look) > 0.05:
+		camera.look_at(look)
+
+
+# --- the frying pan --------------------------------------------------------------------------
+
+func _attack() -> void:
+	if attacking or busy or player == null or not player.is_on_floor():
+		return
+	attacking = true
+	attack_t = 0.0
+	attack_hit_done = false
+	idle_time = 0.0
+	if player_anim:
+		var anim := Rom.find_animation(player_anim, PLAYER_ANIMS.get("attack", ""))
+		if anim != "":
+			player_anim.play(anim, 0.08)
+			_anim_now = "attack"
+
+
+func _update_attack(delta: float) -> void:
+	if not attacking:
+		return
+	attack_t += delta
+	var length := 0.8
+	if player_anim and _anim_now == "attack" and player_anim.current_animation != "":
+		length = player_anim.current_animation_length
+	if pan:
+		pan.visible = attack_t >= float(PAN.get("shown_from", 0.17)) and attack_t <= float(PAN.get("shown_until", 1.0))
+	if not attack_hit_done and attack_t >= float(PAN.get("hit_at", 0.35)):
+		attack_hit_done = true
+		var facing: Vector3 = -(player.get_node("Look") as Node3D).global_transform.basis.z
+		for uid in objects:
+			var o: Dictionary = objects[uid]
+			if o.obj.type != "enemy" or hidden.has(uid):
+				continue
+			var to: Vector3 = o.node.position - player.position
+			to.y = 0
+			if to.length() < 2.2 and (to.length() < 0.6 or facing.normalized().dot(to.normalized()) > 0.2):
+				_hit_enemy(uid, o, to.normalized())
+	if attack_t >= length:
+		attacking = false
+		if pan:
+			pan.visible = false
+		_anim_now = ""
+
+
+func _hit_enemy(uid: String, o: Dictionary, away: Vector3) -> void:
+	o.hits = int(o.get("hits", 0)) + 1
+	o.knock = away * 9.0
+	o.stun = 0.6
+	if o.hits >= int(o.obj.props.get("health", 1)):
+		_hide(uid)
+		_run_trigger("defeat", uid)
+
+
+func _play_music(index: int) -> void:
+	if index == music_index and music.playing:
+		return
+	music_index = index
+	music.stop()
+	if index <= 0:
+		return
+	var stream := Rom.music_stream(index)
+	if stream:
+		music.stream = stream
+		music.play()
 
 
 func _play_anim(state: String) -> void:
@@ -310,15 +490,16 @@ func _check_touches(delta: float) -> void:
 						fired.erase(uid)
 			"enemy":
 				_enemy_step(uid, o, delta)
-				if d < 1.1:
-					if player.velocity.y < -1.0 and p.y > node.position.y + 0.6:
-						player.velocity.y = JUMP * 0.7
-						o.hits = int(o.get("hits", 0)) + 1
-						if o.hits >= int(o.obj.props.get("health", 1)):
-							_hide(uid)
-							_run_trigger("defeat", uid)
-					elif float(o.get("cooldown", 0.0)) <= 0.0:
-						o.cooldown = 1.0
+				if d < 1.25:
+					if player.velocity.y < -1.0 and p.y > node.position.y + 0.9:
+						player.velocity.y = JUMP * 0.7   # bounced on its head
+						_hit_enemy(uid, o, (node.position - p).normalized())
+					elif float(o.get("cooldown", 0.0)) <= 0.0 and float(o.get("stun", 0.0)) <= 0.0:
+						o.cooldown = 1.2
+						var away := (p - node.position)
+						away.y = 0
+						player.velocity = away.normalized() * 8.0 + Vector3(0, 5, 0)
+						knock_t = 0.35
 						_hurt(1)
 				o.cooldown = float(o.get("cooldown", 0.0)) - delta
 			"npc":
@@ -330,13 +511,41 @@ func _check_touches(delta: float) -> void:
 	hint.text = near if not busy else ""
 
 
+# Enemies wander near home, chase Conker when he comes close (but not too far from home),
+# and get knocked back when hit.
 func _enemy_step(uid: String, o: Dictionary, delta: float) -> void:
-	var radius := float(o.obj.props.get("patrol_radius", 4.0))
-	if radius <= 0:
+	var body := o.node as CharacterBody3D
+	if body == null:
 		return
-	o.t += delta
+	var radius := float(o.obj.props.get("patrol_radius", 4.0))
 	var home: Vector3 = o.home
-	o.node.position = home + Vector3(cos(o.t * 0.8) * radius, 0, sin(o.t * 0.8) * radius)
+	var target: Vector3 = o.get("wander", home)
+	var speed := 2.0
+	o.stun = float(o.get("stun", 0.0)) - delta
+	var to_player := player.position - body.position
+	if to_player.length() < 8.0 and (player.position - home).length() < radius + 12.0:
+		target = player.position
+		speed = 4.2
+	elif body.position.distance_to(target) < 0.5 or float(o.get("wander_t", 0.0)) <= 0.0:
+		var angle := randf() * TAU
+		o.wander = home + Vector3(cos(angle), 0, sin(angle)) * randf() * max(radius, 0.1)
+		o.wander_t = randf_range(2.0, 5.0)
+	o.wander_t = float(o.get("wander_t", 0.0)) - delta
+	var flat := target - body.position
+	flat.y = 0
+	var v := Vector3.ZERO
+	if float(o.stun) > 0.0:
+		v = o.get("knock", Vector3.ZERO)
+		o.knock = (o.knock as Vector3).lerp(Vector3.ZERO, 0.15)
+	elif flat.length() > 0.6 and radius > 0.0:
+		v = flat.normalized() * speed
+		var look := body.get_node_or_null("Look") as Node3D
+		if look:
+			look.rotation.y = lerp_angle(look.rotation.y, atan2(-v.x, -v.z) - body.rotation.y, 0.15)
+	body.velocity.x = v.x
+	body.velocity.z = v.z
+	body.velocity.y = 0.0 if body.is_on_floor() else body.velocity.y - GRAVITY * delta
+	body.move_and_slide()
 
 
 func _interact() -> void:
@@ -447,4 +656,4 @@ func _run_actions(actions: Array) -> void:
 			"wait":
 				await get_tree().create_timer(float(action.get("seconds", 1.0))).timeout
 			"play_music":
-				pass   # ROM music arrives with the audio importer
+				_play_music(int(action.get("track", 0)))

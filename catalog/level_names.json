@@ -1,0 +1,24 @@
+{
+  "note": "Names for Bad Fur Day's level scenes, by scene index. 'names' say which part of the game a scene is (ones ending in '?' are guesses from overhead views: correct them and add more). 'descriptions' describe scenes the decomp hasn't described yet. After editing, click 'Refresh level names' in the project hub.",
+  "names": {
+    "1": "Barn interior?",
+    "4": "It's War: the beach?",
+    "6": "Windy",
+    "12": "Windy: windmill?",
+    "39": "Queen Bee's hive?",
+    "59": "Windy (later)"
+  },
+  "descriptions": {
+    "18": "Tall chamber with a blue floor pad",
+    "20": "Round arena with a molten floor",
+    "24": "Rooms beside a large untextured plane",
+    "29": "Wooden structures and stairs",
+    "33": "Wooden floor with hanging chains",
+    "34": "Dark round stone room with three doors",
+    "43": "Grassy hilltop down to the water",
+    "57": "Grassy cliff island",
+    "59": "Windy from above, in a later state",
+    "60": "Graveyard hill, gates and halls",
+    "63": "Winding cavern and golden temple"
+  }
+}

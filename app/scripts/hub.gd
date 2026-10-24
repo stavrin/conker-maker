@@ -16,6 +16,7 @@ var pending := ""   # "new" or "open"
 var asset_status: Label
 var asset_button: Button
 var asset_progress: ProgressBar
+var export_dialog: FileDialog
 var _poll := 0.0
 
 
@@ -108,7 +109,29 @@ func _ready() -> void:
 	asset_button = Button.new()
 	asset_button.pressed.connect(_start_import)
 	a.add_child(asset_button)
+	var names_button := Button.new()
+	names_button.text = "Refresh level names"
+	names_button.tooltip_text = "Re-reads catalog/level_names.json (edit it to name levels your way)."
+	names_button.pressed.connect(func():
+		var result := App.run_cmtools(["refresh-catalog", "--rom", App.settings.rom_path, "--library", Rom.dir])
+		Rom.reload()
+		_update_assets()
+		if not result.get("ok", false):
+			asset_status.text = str(result.get("error", "")) + "\n\n" + asset_status.text)
+	a.add_child(names_button)
+	var export_button := Button.new()
+	export_button.text = "Export models, levels and sounds to a folder..."
+	export_button.tooltip_text = "Named, sorted copies for use in other programs (Blender, other engines). Not part of Conker Maker."
+	export_button.pressed.connect(func(): export_dialog.popup_centered_ratio(0.7))
+	a.add_child(export_button)
 	_update_assets()
+
+	export_dialog = FileDialog.new()
+	export_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	export_dialog.title = "Choose a folder for the exported assets (outside Conker Maker)"
+	export_dialog.dir_selected.connect(_start_export)
+	add_child(export_dialog)
 
 	folder_dialog = FileDialog.new()
 	folder_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
@@ -156,8 +179,10 @@ func _update_assets() -> void:
 	asset_button.disabled = false
 	asset_progress.visible = false
 	if Rom.is_ready():
-		asset_status.text = "Ready: %d models and %d level scenes from your ROM. Choose them in the editor's palette and inspector." % [
+		asset_status.text = "Ready: %d models and %d levels from your ROM. Choose them in the editor's palette and inspector." % [
 				Rom.models.size(), Rom.scenes.size()]
+		if int(Rom.catalog.get("library_version", 1)) < 2:
+			asset_status.text += "\n\nThis library is from an older Conker Maker: click Import again to get the complete levels and their names."
 		asset_button.text = "Import again"
 	else:
 		asset_status.text = "Not imported yet. Conker Maker reads Bad Fur Day's models, textures and level scenes " \
@@ -196,3 +221,33 @@ func _process(delta: float) -> void:
 		asset_progress.value = float(st.step)
 		var elapsed := int(Time.get_unix_time_from_system() - float(st.get("started", 0)))
 		asset_status.text = "Step %d of %d: %s  (%d:%02d)" % [st.step, st.steps, st.message, elapsed / 60, elapsed % 60]
+
+
+# --- exporting ----------------------------------------------------------------------------------
+
+func _start_export(dir: String) -> void:
+	if Rom.importing or _export_thread:
+		return
+	asset_status.text = "Exporting named copies to %s... (a few minutes)" % dir
+	asset_progress.visible = true
+	asset_progress.max_value = 1
+	asset_progress.value = 0
+	_export_thread = Thread.new()
+	_export_thread.start(func():
+		var result := App.run_cmtools(["export-assets", "--rom", App.settings.rom_path, "--library", Rom.dir, "--out", dir])
+		call_deferred("_export_done", result))
+
+
+var _export_thread: Thread
+
+
+func _export_done(result: Dictionary) -> void:
+	_export_thread.wait_to_finish()
+	_export_thread = null
+	asset_progress.visible = false
+	if result.get("ok", false):
+		asset_status.text = "Exported %d models, %d levels and %d sound files to:\n%s" % [
+				result.get("models", 0), result.get("levels", 0), result.get("sounds", 0), result.get("folder", "")]
+		OS.shell_open(str(result.get("folder", "")))
+	else:
+		asset_status.text = "The export didn't finish: " + str(result.get("error", ""))

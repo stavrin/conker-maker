@@ -40,6 +40,13 @@ func _ready() -> void:
 	ed.browser._show(ed.browser.list.get_item_metadata(0))
 	await snap("browser.png")
 	ed.browser.hide()
+	ed.browser.pick_level(func(id): print("level picked ", id))
+	ed.browser.search.text = "windy"
+	ed.browser.refresh()
+	ed.browser.list.select(0)
+	ed.browser._show(ed.browser.list.get_item_metadata(0))
+	await snap("levels_browser.png")
+	ed.browser.hide()
 	ed._play()
 	await snap("play_rom.png")
 	p_walk(ed.play)

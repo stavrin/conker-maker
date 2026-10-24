@@ -3,6 +3,7 @@
 extends RefCounted
 
 const PICK_LAYER := 2
+const GroundFit := preload("res://scripts/ground_fit.gd")
 
 
 static func material(color: Color, translucent := false) -> StandardMaterial3D:
@@ -119,6 +120,10 @@ static func fit_model(model: Node3D, info: Dictionary) -> Dictionary:
 			if anim != "":
 				player.get_animation(anim).loop_mode = Animation.LOOP_LINEAR
 				player.play(anim)
+		var fit := Node.new()
+		fit.set_script(GroundFit)
+		holder.add_child(fit)
+		info.spin = false   # animated characters and pickups play their own animation instead
 	else:
 		# Static models: centre on the position, resting on the ground.
 		var box := Rom.aabb_of(model)
@@ -207,7 +212,8 @@ static func _add_tag_and_pick(root: Node3D, obj: Dictionary, spec: Dictionary, i
 
 static func apply_transform(node: Node3D, obj: Dictionary) -> void:
 	node.position = vec3(obj.get("position"), Vector3.ZERO)
-	node.rotation_degrees = Vector3(0, float(obj.get("rotation_y", 0)), 0)
+	node.rotation_degrees = Vector3(float(obj.get("rotation_x", 0)), float(obj.get("rotation_y", 0)),
+			float(obj.get("rotation_z", 0)))
 	var s := float(obj.get("scale", 1.0))
 	node.scale = Vector3(s, s, s)
 
@@ -302,7 +308,7 @@ static func environment(world: Node3D) -> void:
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.fog_enabled = true
 	e.fog_light_color = Color("f3d9a4")
-	e.fog_density = 0.0012
+	e.fog_density = 0.0006
 	env.environment = e
 	world.add_child(env)
 	var sun := DirectionalLight3D.new()

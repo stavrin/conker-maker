@@ -52,6 +52,8 @@ func _build_object() -> void:
 	var p: Array = obj.position
 	_row("Position", _vec3_editor(p, func(v): obj.position = v; object_changed.emit(obj.uid)))
 	_row("Turn (°)", _number(float(obj.get("rotation_y", 0)), -360, 360, 15, func(v): obj.rotation_y = v; object_changed.emit(obj.uid)))
+	_row("Tilt forward / back (°)", _number(float(obj.get("rotation_x", 0)), -360, 360, 15, func(v): obj.rotation_x = v; object_changed.emit(obj.uid)))
+	_row("Tilt left / right (°)", _number(float(obj.get("rotation_z", 0)), -360, 360, 15, func(v): obj.rotation_z = v; object_changed.emit(obj.uid)))
 	_row("Scale", _number(float(obj.get("scale", 1.0)), 0.1, 20, 0.1, func(v): obj.scale = v; object_changed.emit(obj.uid)))
 	var props_spec: Dictionary = spec.get("props", {})
 	if not obj.has("props"):
@@ -61,7 +63,7 @@ func _build_object() -> void:
 		if not obj.props.has(key):
 			obj.props[key] = field.get("default")
 		_row(key.capitalize(), _prop_editor(key, field))
-	var hint := Main.note_label("Delete: remove   Ctrl+D: duplicate   Q/E: turn   F: focus")
+	var hint := Main.note_label("Delete: remove   Ctrl+D: duplicate   Q/E: turn   Shift+Q/E: tilt forward/back   Alt+Q/E: tilt left/right   F: focus")
 	add_child(hint)
 
 
@@ -206,6 +208,17 @@ func _build_level_settings() -> void:
 		level_changed.emit()
 		_rebuild())
 	_row("Stands on", base_pick)
+	if Rom.is_ready() and browser:
+		var browse_levels := Button.new()
+		browse_levels.text = "Browse Bad Fur Day levels..."
+		browse_levels.pressed.connect(func():
+			browser.pick_level(func(scene_id):
+				before_change.emit()
+				base.kind = "rom_scene"
+				base.scene = scene_id
+				level_changed.emit()
+				_rebuild()))
+		add_child(browse_levels)
 	if not Rom.is_ready():
 		add_child(Main.note_label("Import your ROM's assets (project hub) to build on real Bad Fur Day scenes."))
 	if base.get("kind") == "rom_scene":
@@ -225,8 +238,8 @@ func _build_level_settings() -> void:
 	color.custom_minimum_size = Vector2(80, 30)
 	color.color_changed.connect(func(c): ground.color = "#" + c.to_html(false); level_changed.emit())
 	_row("Ground colour", color)
-	_row("Music (ROM track)", _number(float(level.get("music", {}).get("rom_track", 0)), 0, 452, 1,
-			func(v): level.music = {"rom_track": int(v)}))
+	_row("Music", Rom.music_picker(int(level.get("music", {}).get("rom_track", 0)),
+			func(index): before_change.emit(); level.music = {"rom_track": index}))
 
 	_build_game_settings()
 

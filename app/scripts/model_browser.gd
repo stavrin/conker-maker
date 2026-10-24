@@ -19,6 +19,7 @@ var use_button: Button
 var selected_id := ""
 var only_category := ""   # set before showing to start on a category
 var on_pick := Callable()  # who gets the choice this time
+var levels_mode := false   # browsing whole levels instead of models
 
 
 func _init() -> void:
@@ -82,6 +83,9 @@ func _ready() -> void:
 	preview_root = Node3D.new()
 	viewport.add_child(preview_root)
 	Visuals.environment(preview_root)
+	for child in preview_root.get_children():   # no fog in the preview: whole levels are far away
+		if child is WorldEnvironment:
+			(child as WorldEnvironment).environment.fog_enabled = false
 	camera = Camera3D.new()
 	camera.fov = 40
 	preview_root.add_child(camera)
@@ -116,6 +120,23 @@ func refresh() -> void:
 	list.clear()
 	var want: String = category.get_item_metadata(category.selected) if category.selected >= 0 else ""
 	var words := search.text.to_lower().split(" ", false)
+	category.visible = not levels_mode
+	named_only.visible = not levels_mode
+	if levels_mode:
+		for lvl in Rom.catalog.get("scenes", []):
+			var label := "%d: %s" % [lvl.index, lvl.name]
+			var ok_level := true
+			for w in words:
+				if not w in label.to_lower():
+					ok_level = false
+			if ok_level:
+				list.add_item(label)
+				list.set_item_metadata(list.item_count - 1, lvl.id)
+				list.set_item_tooltip(list.item_count - 1, "%s · %d faces%s" % [lvl.id, lvl.get("faces", 0),
+						"" if lvl.get("reviewed", false) else " · complete, unreviewed: may include stray or untextured pieces"])
+				if lvl.id == selected_id:
+					list.select(list.item_count - 1)
+		return
 	for m in Rom.catalog.get("models", []):
 		if want != "" and m.category != want:
 			continue
@@ -139,6 +160,9 @@ func refresh() -> void:
 func _show(id: String) -> void:
 	selected_id = id
 	use_button.disabled = false
+	if levels_mode:
+		_show_level(id)
+		return
 	var m: Dictionary = Rom.models.get(id, {})
 	title_label.text = m.get("name", id)
 	info_label.text = "%s · %s · %d faces%s" % [Rom.categories().get(m.get("category"), ""), id, m.get("faces", 0),
@@ -163,6 +187,40 @@ func _show(id: String) -> void:
 	camera.far = radius * 50.0
 
 
+func _show_level(id: String) -> void:
+	var lvl: Dictionary = Rom.scenes.get(id, {})
+	title_label.text = "%d: %s" % [lvl.get("index", 0), lvl.get("name", id)]
+	info_label.text = "%d faces · %s" % [lvl.get("faces", 0), "reviewed selection" if lvl.get("reviewed", false)
+			else "every piece the ROM places here (unreviewed)"]
+	if holder:
+		holder.queue_free()
+		holder = null
+	var scene := Rom.instance_scene(id)
+	if scene == null:
+		info_label.text += "\n(Couldn't load this level.)"
+		return
+	holder = Node3D.new()
+	preview_root.add_child(holder)
+	scene.scale = Vector3.ONE * Rom.world_scale
+	holder.add_child(scene)
+	var box := Rom.aabb_of(holder)
+	var radius: float = max(box.size.length() * 0.5, 1.0)
+	var center := box.get_center()
+	camera.position = center + Vector3(0, radius * 1.1, radius * 1.3)
+	camera.look_at(center)
+	camera.near = radius * 0.005
+	camera.far = radius * 20.0
+
+
+# Opens the browser to pick a whole level.
+func pick_level(callback: Callable) -> void:
+	levels_mode = true
+	title = "Bad Fur Day levels from your ROM"
+	use_button.text = "Build on this level"
+	on_pick = callback
+	popup_centered()
+
+
 func _use() -> void:
 	if selected_id == "":
 		return
@@ -174,6 +232,9 @@ func _use() -> void:
 
 # Opens the browser for one choice.
 func pick(category_key: String, callback: Callable) -> void:
+	levels_mode = false
+	title = "Models from your ROM"
+	use_button.text = "Use this model"
 	only_category = category_key
 	on_pick = callback
 	popup_centered()

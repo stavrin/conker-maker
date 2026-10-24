@@ -134,6 +134,8 @@ func _event_row(event: Dictionary) -> Control:
 
 func _field(action: Dictionary, field: String, kind: String) -> Control:
 	match kind:
+		"music":
+			return Rom.music_picker(int(action.get(field, 0)), func(index): action[field] = index)
 		"object":
 			return _object_picker(action.get(field, ""), "", func(uid): action[field] = uid)
 		"level":

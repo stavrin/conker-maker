@@ -59,12 +59,58 @@ func categories() -> Dictionary:
 	return catalog.get("categories", {})
 
 
+# --- music -------------------------------------------------------------------------------------
+
+func music_list() -> Array:
+	return catalog.get("audio", {}).get("music", [])
+
+
+# A dropdown of the ROM's music by name (or a number box before the assets are imported).
+func music_picker(current: int, on_pick: Callable) -> Control:
+	var tracks := music_list()
+	if tracks.is_empty():
+		var spin := SpinBox.new()
+		spin.max_value = 148
+		spin.value = current
+		spin.prefix = "track"
+		spin.value_changed.connect(func(v): on_pick.call(int(v)))
+		return spin
+	var option := OptionButton.new()
+	option.fit_to_longest_item = false
+	option.clip_text = true
+	option.add_item("(no music)")
+	option.set_item_metadata(0, 0)
+	for t in tracks:
+		if int(t.index) == 0:
+			continue
+		option.add_item("%s — %s" % [t.name, t.category])
+		option.set_item_metadata(option.item_count - 1, int(t.index))
+		if int(t.index) == current:
+			option.select(option.item_count - 1)
+	option.item_selected.connect(func(i): on_pick.call(option.get_item_metadata(i)))
+	return option
+
+
+# The rendered WAV of a music track, or null (needs Godot 4.4+ to load WAVs at runtime).
+func music_stream(index: int) -> AudioStream:
+	for t in music_list():
+		if int(t.index) == index and t.get("wav"):
+			var path := dir.path_join(t.wav)
+			if FileAccess.file_exists(path) and ClassDB.class_has_method("AudioStreamWAV", "load_from_file"):
+				var stream: AudioStreamWAV = AudioStreamWAV.load_from_file(path)
+				if stream:
+					stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+					stream.loop_end = int(stream.get_length() * stream.mix_rate) if stream.loop_end == 0 else stream.loop_end
+				return stream
+	return null
+
+
 # --- loading -----------------------------------------------------------------------------------
 
 func instance_model(id: String) -> Node3D:
 	if not models.has(id):
 		return null
-	return _instance(dir.path_join(models[id].path))
+	return _instance(dir.path_join(models[id].path), true)
 
 
 func instance_scene(id: String) -> Node3D:
@@ -73,7 +119,7 @@ func instance_scene(id: String) -> Node3D:
 	return _instance(dir.path_join(scenes[id].path))
 
 
-func _instance(path: String) -> Node3D:
+func _instance(path: String, double_sided := false) -> Node3D:
 	if not _packed.has(path):
 		if not FileAccess.file_exists(path):
 			return null
@@ -85,11 +131,26 @@ func _instance(path: String) -> Node3D:
 		if root == null:
 			return null
 		_own(root, root)
+		if double_sided:
+			_double_sided(root)
 		var packed := PackedScene.new()
 		packed.pack(root)
 		root.free()
 		_packed[path] = packed
 	return _packed[path].instantiate()
+
+
+# The N64 often draws both sides of a surface; glTF materials default to one side, which
+# leaves holes in thin models like the cash bundle. Models (not level scenes) show both.
+func _double_sided(root: Node) -> void:
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh: Mesh = (mi as MeshInstance3D).mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var m := mesh.surface_get_material(i) as BaseMaterial3D
+			if m:
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 
 func _own(node: Node, owner_node: Node) -> void:

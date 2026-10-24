@@ -369,7 +369,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif key.keycode == KEY_Q or key.keycode == KEY_E:
 		var obj := view.find(view.selected_uid)
 		_push_undo()
-		obj.rotation_y = wrapf(float(obj.get("rotation_y", 0)) + (15.0 if key.keycode == KEY_Q else -15.0), -180, 180)
+		# Q/E turn; with Shift they tilt forward/back (X), with Alt left/right (Z).
+		var axis := "rotation_x" if key.shift_pressed else ("rotation_z" if key.alt_pressed else "rotation_y")
+		obj[axis] = wrapf(float(obj.get(axis, 0)) + (15.0 if key.keycode == KEY_Q else -15.0), -180, 180)
 		view.refresh_object(obj.uid)
 		inspector.show_object(level(), obj.uid)
 		dirty = true

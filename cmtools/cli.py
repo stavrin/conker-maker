@@ -9,6 +9,8 @@
     python -m cmtools playtest   <built.z64> --recomp <ConkerRecomp.exe>
     python -m cmtools import-assets --rom <rom> [--library <folder>]   (models, textures, scenes)
     python -m cmtools library    --rom <rom>       (where the asset library is, and what's in it)
+    python -m cmtools export-assets --rom <rom> --out <folder>   (named, sorted copies for other programs)
+    python -m cmtools refresh-catalog --rom <rom>  (re-read catalog/level_names.json)
 
 Add --json to get machine-readable output (the app uses it).
 """
@@ -17,8 +19,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
-from . import build, package, project, rom as romlib, rom_assets
+from . import build, export_assets, package, project, rom as romlib, rom_assets
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,6 +53,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--library", help="where to put them (default: your app-data folder)")
     p.add_argument("--decomp", help="an existing conkers-bfd-decomp checkout to use")
     p.add_argument("--no-scenes", action="store_true", help="skip composing level scenes (faster)")
+    p = sub.add_parser("export-assets", help="copy named, sorted models, levels and sounds to a folder")
+    p.add_argument("--rom", required=True)
+    p.add_argument("--library")
+    p.add_argument("--out", required=True)
+    p = sub.add_parser("refresh-catalog", help="re-read names (e.g. catalog/level_names.json) into the library")
+    p.add_argument("--rom", required=True)
+    p.add_argument("--library")
     p = sub.add_parser("library", help="where your ROM's asset library is")
     p.add_argument("--rom", required=True)
     args = parser.parse_args(argv)
@@ -96,6 +106,18 @@ def main(argv: list[str] | None = None) -> int:
                                               say=(lambda m: print(m, file=sys.stderr)) if args.json else print)
             say({"ok": True, **result}, f"Imported {result['models']} models and {result['scenes']} scenes "
                 f"in {result['seconds']} s into {result['library']}")
+        elif args.command == "export-assets":
+            r = romlib.load(args.rom)
+            library = Path(args.library) if args.library else rom_assets.default_library(r)
+            counts = export_assets.export(library, args.out, say=(lambda m: print(m, file=sys.stderr)) if args.json else print)
+            say({"ok": True, **counts}, f"Exported {counts['models']} models, {counts['levels']} levels and "
+                f"{counts['sounds']} sound files to {counts['folder']}")
+        elif args.command == "refresh-catalog":
+            r = romlib.load(args.rom)
+            library = Path(args.library) if args.library else rom_assets.default_library(r)
+            catalog = rom_assets.build_catalog(library, rom_assets.default_decomp_dir(), r)
+            say({"ok": True, "models": len(catalog["models"]), "scenes": len(catalog["scenes"])},
+                f"Catalog rebuilt: {len(catalog['models'])} models, {len(catalog['scenes'])} levels")
         elif args.command == "library":
             r = romlib.load(args.rom)
             info = rom_assets.library_info(rom_assets.default_library(r))

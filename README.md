@@ -44,8 +44,15 @@ After that:
 - **Browse models...** in the palette places any of ~1,500 models (crates, barrels, signs,
   fences, Tediz, Haybot...) as props, with a spinning preview and search.
 - Any object's **Model → Choose from ROM...** in the inspector swaps its look.
-- A level's **Stands on** can be one of 44 Bad Fur Day scenes, which you can walk around in
-  **Play here** as the real, animated Conker.
+- A level's **Stands on** can be any of 55 Bad Fur Day levels (**Browse Bad Fur Day levels...**
+  shows them), which you can walk around in **Play here** as the real, animated Conker.
+- Levels and events can play the game's music, listed by name (rendered with the game's own
+  instruments; this needs NumPy, which the import installs if it can).
+- **Export models, levels and sounds to a folder...** makes named, sorted copies for other
+  programs: `.glb` models and levels, music as `.wav` + `.mid`, voices and streams as `.mp3`,
+  sound effects and instrument samples as `.wav`. That folder isn't part of Conker Maker.
+- Level names live in `catalog/level_names.json`: rename or correct them there, then click
+  **Refresh level names** in the hub.
 
 Editor controls:
 
@@ -54,9 +61,9 @@ Editor controls:
 | Place something | Click it in the palette, then click in the level (right-click or Esc to stop) |
 | Select / move | Click / drag (Shift-drag: up and down, hold Alt: no snapping) |
 | Camera | Right-drag orbit, middle-drag pan, wheel zoom, F focus on the selection |
-| Turn / duplicate / delete | Q and E / Ctrl+D / Delete |
+| Turn / tilt / duplicate / delete | Q and E (Shift: tilt forward/back, Alt: tilt left/right) / Ctrl+D / Delete |
 | Undo / redo / save | Ctrl+Z / Ctrl+Y / Ctrl+S |
-| Play here | WASD run, Space jump (hold in the air to hover), E talk/press, Esc back |
+| Play here | WASD run (Shift: walk), Space jump (hold in the air to hover), F or left click: frying pan, E talk/press, right-drag or arrows: camera, wheel: zoom, Esc back |
 
 ## Using cmtools directly
 

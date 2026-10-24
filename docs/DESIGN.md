@@ -58,7 +58,8 @@ gets built in.
 | Object catalog | `catalog/objects.json` | 13 object types, 6 triggers, 8 actions; shared by app and cmtools |
 | Scene catalog | `catalog/scenes.json` | 35 known BFD scenes (chapter-table indices and names) |
 | Runtime mod | `runtime_mod/obd_core/` | **Skeleton, builds**: finds the game package in the ROM, logs scene changes |
-| ROM asset importer | `cmtools/rom_assets.py`, `app/scripts/rom_library.gd`, `model_browser.gd` | **Working**: 1,485 models (with 764 Conker animations), 44 level scenes, browser, real models in editor and preview |
+| ROM asset importer | `cmtools/rom_assets.py`, `decomp_levels.py`, `app/scripts/rom_library.gd`, `model_browser.gd` | **Working**: 1,485 models (with 764 Conker animations), 55 complete levels, music, voices and sounds; model and level browsers |
+| Asset export | `cmtools/export_assets.py` | **Working**: named, categorised `.glb`, `.wav`, `.mid` and `.mp3` copies in a folder outside the app |
 | Level loader in the real game | — | Planned (milestone 3+) |
 
 ### The app (`app/`)
@@ -194,7 +195,7 @@ saves keep working.
 | # | Milestone | What you can do after it |
 | --- | --- | --- |
 | 1 | **Skeleton** (this commit) | Make a multi-level game in the editor, play it in the preview, build a ROM and BPS the recomp accepts, and confirm obd_core finds the game |
-| 2 | **ROM importer** (done, except audio) | The palette and inspector show real BFD models and textures from your ROM (glTF via the decomp's extractors), levels can stand on real BFD scenes, and the preview plays as the animated Conker. ROM music and voice lines are still to come |
+| 2 | **ROM importer** (done) | The palette and inspector show real BFD models and textures from your ROM (glTF via the decomp's extractors), levels can stand on real BFD scenes, and the preview plays as the animated Conker. Music (149 named sequences, rendered), 453 voice/music streams and the sound bank are imported too; 55 complete levels |
 | 3 | **Remix a scene** | Build a level on a real BFD scene: move, add and remove placed objects and spawn points, and play it in the recomp |
 | 4 | **obd_core events** | Your events run in the real game: dialogue, pickups, B pads, triggers, exits between your levels |
 | 5 | **Custom geometry** | Build new areas (in-editor blocks, or Blender .glb imports) that the real game draws and collides with |
