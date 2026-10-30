@@ -317,6 +317,13 @@ func _new_uid(type: String) -> String:
 	return "%s_%d" % [type, n]
 
 
+# While playing with the pointer hidden, the mouse goes straight to the game wherever it is.
+func _input(event: InputEvent) -> void:
+	if play and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and event is InputEventMouse:
+		play.handle_input(event)
+		get_viewport().set_input_as_handled()
+
+
 func _on_view_input(event: InputEvent) -> void:
 	if play:
 		play.handle_input(event)
@@ -434,7 +441,7 @@ func _play() -> void:
 	play.finished.connect(_stop_play)
 	play.start(level_id)
 	viewport.get_parent().grab_focus()
-	log_line("Playing '%s'. WASD move, Space jump (hold to hover), E talk/press, Esc back." % level().get("title", level_id))
+	log_line("Playing '%s'. WASD move, mouse turns the camera, Space jump (hold to hover), F or click: frying pan, E talk/press, Esc back." % level().get("title", level_id))
 
 
 func _stop_play() -> void:

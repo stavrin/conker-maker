@@ -13,7 +13,12 @@ var world_scale := 0.01
 var importing := false
 var import_result := {}
 var _packed := {}           # path -> PackedScene
+var _donor_libraries := {}  # model id -> AnimationLibrary borrowed by look-alike characters
+var _roles := {}            # model id -> {idle, walk, run, attack, hurt, die}
 var _thread: Thread
+
+const AnimRoles := preload("res://scripts/anim_roles.gd")
+const CATALOG_REVISION := 2   # matches cmtools; older catalogs are rebuilt on load
 
 
 func _ready() -> void:
@@ -25,10 +30,17 @@ func reload() -> void:
 	models.clear()
 	scenes.clear()
 	_packed.clear()
+	_donor_libraries.clear()
+	_roles.clear()
 	dir = App.settings.get("library_dir", "")
 	var path := dir.path_join("catalog.json")
 	if dir != "" and FileAccess.file_exists(path):
 		var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if data is Dictionary and int(data.get("catalog_revision", 1)) < CATALOG_REVISION \
+				and App.settings.get("rom_path", "") != "":
+			# A library from an older Conker Maker: rebuild its catalog (a few seconds, no re-import).
+			App.run_cmtools(["refresh-catalog", "--rom", App.settings.rom_path, "--library", dir])
+			data = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if data is Dictionary and data.get("rom_sha1", "") != "":
 			catalog = data
 			world_scale = float(data.get("world_scale", 0.01))
@@ -110,7 +122,76 @@ func music_stream(index: int) -> AudioStream:
 func instance_model(id: String) -> Node3D:
 	if not models.has(id):
 		return null
-	return _instance(dir.path_join(models[id].path), true)
+	var node := _instance(dir.path_join(models[id].path), true)
+	if node == null:
+		return null
+	node.set_meta("rom_id", id)
+	node.set_meta("anim_source", id)
+	var donor: String = models[id].get("anim_from", "")
+	if donor != "" and models.has(donor) and animation_player(node) == null:
+		var library := _donor_library(donor)
+		if library:
+			var player := AnimationPlayer.new()
+			player.name = "AnimationPlayer"
+			player.add_animation_library("", library)
+			node.add_child(player)
+			player.root_node = NodePath("..")
+			node.set_meta("anim_source", donor)
+	return node
+
+
+# Some characters are stored without animations (the Tedi soldiers, the Tedi General...) but
+# share their skeleton with one that has them: cmtools records that donor as `anim_from`.
+# Only the root joint keeps its movement; the others just rotate, so the borrowed clips fit
+# a body with different proportions.
+func _donor_library(donor: String) -> AnimationLibrary:
+	if _donor_libraries.has(donor):
+		return _donor_libraries[donor]
+	var source := _instance(dir.path_join(models[donor].path), true)
+	var library: AnimationLibrary = null
+	var player := animation_player(source) if source else null
+	if player:
+		library = AnimationLibrary.new()
+		var skeletons := source.find_children("*", "Skeleton3D", true, false)
+		var root_bone: String = (skeletons[0] as Skeleton3D).get_bone_name(0) if not skeletons.is_empty() else ""
+		for name in player.get_animation_list():
+			var anim: Animation = player.get_animation(name).duplicate(true)
+			for t in range(anim.get_track_count() - 1, -1, -1):
+				if anim.track_get_type(t) == Animation.TYPE_POSITION_3D \
+						and String(anim.track_get_path(t).get_concatenated_subnames()) != root_bone:
+					anim.remove_track(t)
+			library.add_animation(name, anim)
+	if source:
+		source.free()
+	_donor_libraries[donor] = library
+	return library
+
+
+# Which animation plays for idle, walk, run, attack, hurt and die on this model (names in
+# its AnimationPlayer, "" if it has none). Checked-by-eye names in catalog/objects.json win;
+# the rest are worked out from the poses (anim_roles.gd).
+func roles(model: Node) -> Dictionary:
+	var player := animation_player(model)
+	if player == null:
+		return {}
+	var source: String = model.get_meta("anim_source", "")
+	if source != "" and _roles.has(source):
+		return _roles[source]
+	var skeletons := model.find_children("*", "Skeleton3D", true, false)
+	var found := {"idle": find_animation(player)}
+	if player.get_animation_list().size() <= 150:   # Conker's 764 are named in the catalog instead
+		found = AnimRoles.classify(player, skeletons[0] if not skeletons.is_empty() else null)
+	var reviewed: Dictionary = App.catalog.get("character_animations", {}).get(source, {})
+	if source == "b01-0000-00":   # Conker: the player section names his
+		reviewed = App.catalog.get("player", {}).get("animations", {}).duplicate()
+		reviewed.attack = App.catalog.get("player", {}).get("animations", {}).get("attack", "")
+	for role in reviewed:
+		var name := find_animation(player, str(reviewed[role]))
+		if name != "" and str(reviewed[role]) != "":
+			found[role] = name
+	if source != "":
+		_roles[source] = found
+	return found
 
 
 func instance_scene(id: String) -> Node3D:

@@ -37,6 +37,7 @@ from . import rom as romlib
 DECOMP_REPO = "DevOldSchool/conkers-bfd-decomp"
 DECOMP_COMMIT = "4288820283c66edb65f41e20dc13c89cd8c46e05"
 CATALOG_FORMAT = "conker-maker-rom-library-v1"
+CATALOG_REVISION = 2   # 2: animation donors (anim_from) for characters without their own clips
 LIBRARY_VERSION = 2   # 2: complete levels (levels/), level names
 # One N64 unit is about a centimetre: Conker comes out about 1.6 m tall at this scale.
 WORLD_SCALE = 0.01
@@ -389,6 +390,49 @@ def level_descriptions() -> dict:
     return json.loads(path.read_text(encoding="utf-8")).get("descriptions", {})
 
 
+def _skeleton_signature(gltf: Path) -> tuple | None:
+    """The joint hierarchy of a skinned model (each joint's parent), or None if it has no skin."""
+    try:
+        doc = json.loads(gltf.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    skins = doc.get("skins") or []
+    if not skins:
+        return None
+    joints = skins[0]["joints"]
+    parent = {}
+    for index, node in enumerate(doc.get("nodes", [])):
+        for child in node.get("children", []):
+            parent[child] = index
+    position = {node: i for i, node in enumerate(joints)}
+    return tuple(position.get(parent.get(j), -1) for j in joints)
+
+
+def animation_donors(library: Path, models: list[dict]) -> dict[str, str]:
+    """Characters stored without animations (the Tedi soldiers, the General...) share a skeleton
+    with one that has them: borrow those. Prefers a donor with a similar name."""
+    signatures, animated = {}, {}
+    for m in models:
+        if m["bank"] != 1 or m.get("category") != "characters":
+            continue
+        sig = _skeleton_signature(library / m["path"])
+        if sig is None or len(sig) < 4:
+            continue
+        signatures[m["id"]] = sig
+        if m["animations"] > 0:
+            animated.setdefault(sig, []).append(m)
+    donors = {}
+    for m in models:
+        sig = signatures.get(m["id"])
+        if sig is None or m["animations"] > 0 or sig not in animated:
+            continue
+        stem = re.sub(r"[^a-z]", "", m["name"].lower())[:4]
+        best = max(animated[sig], key=lambda d: (bool(stem) and re.sub(r"[^a-z]", "", d["name"].lower())[:4] == stem,
+                                                 d.get("named", False), d["animations"]))
+        donors[m["id"]] = best["id"]
+    return donors
+
+
 def build_catalog(library: Path, decomp: Path, rom: romlib.Rom) -> dict:
     labels = _labels(decomp)
     models = []
@@ -415,6 +459,10 @@ def build_catalog(library: Path, decomp: Path, rom: romlib.Rom) -> dict:
                 "animations": record.get("animation_clip_count", 0) or 0,
             })
     models.sort(key=lambda m: (not m["named"], m["name"].lower()))
+    for mid, donor in animation_donors(library, models).items():
+        for m in models:
+            if m["id"] == mid:
+                m["anim_from"] = donor
     scene_names = _scene_names(decomp)
     scenes = []
     nicknames = level_names()
@@ -436,7 +484,7 @@ def build_catalog(library: Path, decomp: Path, rom: romlib.Rom) -> dict:
     scenes.sort(key=lambda s: s["index"])
     catalog_audio = audio_catalog(library)
     catalog = {
-        "format": CATALOG_FORMAT, "library_version": LIBRARY_VERSION,
+        "format": CATALOG_FORMAT, "library_version": LIBRARY_VERSION, "catalog_revision": CATALOG_REVISION,
         "rom_sha1": rom.sha1, "rom_kind": rom.kind,
         "decomp": {"repo": DECOMP_REPO, "commit": DECOMP_COMMIT},
         "world_scale": WORLD_SCALE,

@@ -3,16 +3,21 @@
 # "Playtest in recomp" runs the real game.
 #
 #   WASD move (Shift: walk)   Space jump (hold in the air to hover with the tail)
-#   F or left click: frying pan   E / B interact   Esc back to the editor
-#   Camera: right-drag or arrow keys to turn, mouse wheel to zoom; it pulls in near walls,
-#   like the recomp's camera (CBFD-Recompiled host/src/mouse_camera.cpp).
+#   F or left click: frying pan (on the ground or in the air)   E / B interact   Esc back to the editor
+#   Camera: the mouse turns it (the pointer is hidden while you play), arrow keys too, the
+#   wheel zooms; it pulls in near walls, like the recomp's camera
+#   (CBFD-Recompiled host/src/mouse_camera.cpp).
+#
+# Enemies walk, run at Conker, attack him up close, flinch when hit and die with their own
+# ROM animations (anim_roles.gd picks which is which), and bleed like they do in Bad Fur Day:
+# a spray, a pool on the floor, and splats on the screen when it happens near the camera.
 extends Node3D
 
 signal finished
 
 const Visuals := preload("res://scripts/visuals.gd")
 const SPEED := 7.0
-const JUMP := 9.0
+const JUMP := 10.5          # about 2.3 m: Conker's jump clears a crate with room to spare
 const GRAVITY := 24.0
 const HOVER_FALL := 1.5
 const HOVER_TIME := 2.0
@@ -61,6 +66,10 @@ var pan: Node3D               # the frying pan, shown during the attack
 var idle_time := 0.0
 var knock_t := 0.0
 var PAN: Dictionary = App.catalog.get("player", {}).get("frying_pan", {})
+var HOVER_SPEED := float(App.catalog.get("player", {}).get("hover_speed", 2.2))   # tail spin speed
+var splat_layer: CanvasLayer
+var flash: ColorRect
+const Blood := preload("res://scripts/blood.gd")
 var music: AudioStreamPlayer
 var music_index := -1
 
@@ -99,6 +108,14 @@ func _ready() -> void:
 	dialogue.add_child(dialogue_label)
 	dialogue.visible = false
 	layer.add_child(dialogue)
+	flash = ColorRect.new()   # a red flash when Conker gets hurt
+	flash.color = Color(0.7, 0.0, 0.0, 0.0)
+	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(flash)
+	splat_layer = CanvasLayer.new()   # blood on the screen
+	splat_layer.layer = 2
+	add_child(splat_layer)
 	music = AudioStreamPlayer.new()
 	music.volume_db = -6.0
 	add_child(music)
@@ -138,6 +155,8 @@ func start(id: String, spawn := "") -> void:
 			tag.visible = false
 		add_child(node)
 		objects[obj.uid] = {"obj": obj, "node": node, "home": node.position, "t": 0.0}
+		if obj.type == "enemy":
+			_setup_enemy(objects[obj.uid])
 		if obj.type == "player_start" and spawn == "":
 			start_pos = node.position
 			start_turn = node.rotation.y
@@ -147,6 +166,7 @@ func start(id: String, spawn := "") -> void:
 	_make_player(start_pos, start_turn)
 	respawn = start_pos
 	_play_music(int(level.get("music", {}).get("rom_track", 0)))
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_update_hud()
 	_run_trigger("level_start", "")
 
@@ -181,8 +201,14 @@ func _bodied(obj: Dictionary, spec: Dictionary) -> Node3D:
 	var visual := Visuals.build(obj, spec, false)
 	visual.position = Vector3.ZERO
 	visual.rotation = Vector3.ZERO
+	visual.scale = Vector3.ONE   # the body carries the object's scale
 	visual.name = "Look"
 	body.add_child(visual)
+	if obj.type == "context_pad" and visual.has_meta("model"):
+		for pad_shape in Visuals.trimesh_shapes(visual):   # stand on the pad's real top
+			body.add_child(pad_shape)
+		Visuals.apply_transform(body, obj)
+		return body
 	var shape := CollisionShape3D.new()
 	if obj.type == "context_pad":
 		var box := BoxShape3D.new()
@@ -261,7 +287,15 @@ func handle_input(event: InputEvent) -> void:
 	_handle(event)
 
 
+func _exit_tree() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
 func _handle(event: InputEvent) -> void:
+	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if event is InputEventMouseButton and event.pressed and not captured:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED   # clicking back in hides the pointer again
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_mouse_turn = event.pressed
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -270,11 +304,12 @@ func _handle(event: InputEvent) -> void:
 		cam_zoom = min(1.0, cam_zoom * CAM_ZOOM_STEP)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_attack()
-	elif event is InputEventMouseMotion and _mouse_turn:
+	elif event is InputEventMouseMotion and (captured or _mouse_turn):
 		cam_yaw -= event.relative.x * 0.006
 		cam_pitch = clamp(cam_pitch + event.relative.y * 0.004, -0.6, 0.5)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			finished.emit()
 		elif event.keycode == KEY_F:
 			_attack()
@@ -302,7 +337,7 @@ func _physics_process(delta: float) -> void:
 	if dir.length() > 1:
 		dir = dir.normalized()
 	var walking := Input.is_key_pressed(KEY_SHIFT)
-	var speed := (WALK_SPEED if walking else SPEED) * (0.15 if attacking else 1.0)
+	var speed := (WALK_SPEED if walking else SPEED) * (0.15 if attacking and player.is_on_floor() else 1.0)
 	if knock_t <= 0.0:
 		player.velocity.x = dir.x * speed
 		player.velocity.z = dir.z * speed
@@ -333,7 +368,7 @@ func _physics_process(delta: float) -> void:
 		if state == "idle" and idle_time > 8.0:
 			state = "bored"
 		_play_anim(state)
-	if dir.length() > 0.1 and not attacking:
+	if dir.length() > 0.1 and (not attacking or not player.is_on_floor()):
 		player.get_node("Look").rotation.y = lerp_angle(player.get_node("Look").rotation.y, atan2(-dir.x, -dir.z) - player.rotation.y, 0.25)
 	_update_camera(delta)
 	if player.position.y < respawn.y - 60.0:   # fell out of the level
@@ -368,7 +403,7 @@ func _update_camera(delta: float) -> void:
 # --- the frying pan --------------------------------------------------------------------------
 
 func _attack() -> void:
-	if attacking or busy or player == null or not player.is_on_floor():
+	if attacking or busy or player == null:
 		return
 	attacking = true
 	attack_t = 0.0
@@ -378,6 +413,7 @@ func _attack() -> void:
 		var anim := Rom.find_animation(player_anim, PLAYER_ANIMS.get("attack", ""))
 		if anim != "":
 			player_anim.play(anim, 0.08)
+			player_anim.speed_scale = 1.0
 			_anim_now = "attack"
 
 
@@ -395,11 +431,12 @@ func _update_attack(delta: float) -> void:
 		var facing: Vector3 = -(player.get_node("Look") as Node3D).global_transform.basis.z
 		for uid in objects:
 			var o: Dictionary = objects[uid]
-			if o.obj.type != "enemy" or hidden.has(uid):
+			if o.obj.type != "enemy" or hidden.has(uid) or o.get("dead", false):
 				continue
 			var to: Vector3 = o.node.position - player.position
+			var rise := absf(to.y)
 			to.y = 0
-			if to.length() < 2.2 and (to.length() < 0.6 or facing.normalized().dot(to.normalized()) > 0.2):
+			if rise < 1.6 and to.length() < 2.2 and (to.length() < 0.6 or facing.normalized().dot(to.normalized()) > 0.2):
 				_hit_enemy(uid, o, to.normalized())
 	if attack_t >= length:
 		attacking = false
@@ -409,12 +446,35 @@ func _update_attack(delta: float) -> void:
 
 
 func _hit_enemy(uid: String, o: Dictionary, away: Vector3) -> void:
+	if o.get("dead", false):
+		return
 	o.hits = int(o.get("hits", 0)) + 1
 	o.knock = away * 9.0
-	o.stun = 0.6
-	if o.hits >= int(o.obj.props.get("health", 1)):
-		_hide(uid)
-		_run_trigger("defeat", uid)
+	o.attacking = false
+	var chest: Vector3 = (o.node as Node3D).global_position + Vector3(0, 1.0, 0)
+	var dying: bool = o.hits >= int(o.obj.props.get("health", 1))
+	Blood.burst(self, chest, away, 90 if dying else 45)
+	if chest.distance_to(camera.global_position) < 7.0:
+		Blood.screen(splat_layer, 3 if dying else 1)
+	if dying:
+		_kill_enemy(uid, o)
+		return
+	var hurt_len := _enemy_anim(o, "hurt")
+	o.stun = clampf(hurt_len, 0.35, 0.9) if hurt_len > 0.0 else 0.6
+
+
+func _kill_enemy(uid: String, o: Dictionary) -> void:
+	o.dead = true
+	o.dead_t = 0.0
+	o.stun = 0.4
+	var body := o.node as CollisionObject3D
+	body.collision_layer = 0          # Conker walks over the body; it still lies on the floor
+	Blood.pool(self, (o.node as Node3D).global_position)
+	if _enemy_anim(o, "die") <= 0.0:  # no death animation: topple over
+		var look := o.node.get_node_or_null("Look") as Node3D
+		if look:
+			create_tween().tween_property(look, "rotation:x", -PI / 2.0, 0.45).set_trans(Tween.TRANS_QUAD)
+	_run_trigger("defeat", uid)
 
 
 func _play_music(index: int) -> void:
@@ -436,6 +496,7 @@ func _play_anim(state: String) -> void:
 	var anim := Rom.find_animation(player_anim, PLAYER_ANIMS.get(state, ""))
 	if anim != "":
 		player_anim.play(anim, 0.15)
+		player_anim.speed_scale = HOVER_SPEED if state == "hover" else 1.0
 		_anim_now = state
 
 
@@ -490,18 +551,14 @@ func _check_touches(delta: float) -> void:
 						fired.erase(uid)
 			"enemy":
 				_enemy_step(uid, o, delta)
-				if d < 1.25:
+				if d < 1.25 and not o.get("dead", false):
 					if player.velocity.y < -1.0 and p.y > node.position.y + 0.9:
 						player.velocity.y = JUMP * 0.7   # bounced on its head
 						_hit_enemy(uid, o, (node.position - p).normalized())
-					elif float(o.get("cooldown", 0.0)) <= 0.0 and float(o.get("stun", 0.0)) <= 0.0:
-						o.cooldown = 1.2
-						var away := (p - node.position)
-						away.y = 0
-						player.velocity = away.normalized() * 8.0 + Vector3(0, 5, 0)
-						knock_t = 0.35
-						_hurt(1)
-				o.cooldown = float(o.get("cooldown", 0.0)) - delta
+					elif str(o.roles.get("attack", "")) == "" and float(o.get("cooldown", 0.0)) <= 0.0 \
+							and float(o.get("stun", 0.0)) <= 0.0:
+						o.cooldown = 1.2   # no attack animation: it hurts on contact instead
+						_knock_player(node.position)
 			"npc":
 				if d < 2.5:
 					near = "Press E to talk to " + str(o.obj.props.get("name", "them"))
@@ -511,37 +568,123 @@ func _check_touches(delta: float) -> void:
 	hint.text = near if not busy else ""
 
 
-# Enemies wander near home, chase Conker when he comes close (but not too far from home),
-# and get knocked back when hit.
+# Enemies wander near home (walking), run at Conker when he comes close (but not too far from
+# home), stop and attack when he's in reach, flinch when hit and die where they fall.
+func _setup_enemy(o: Dictionary) -> void:
+	o.roles = {}
+	o.anim = null
+	var look := o.node.get_node_or_null("Look") as Node3D
+	if look == null or not look.has_meta("model"):
+		return
+	var holder := look.get_meta("model") as Node3D
+	var model := holder.get_child(0) if holder.get_child_count() > 0 else null
+	if model == null:
+		return
+	o.anim = Rom.animation_player(model)
+	if o.anim == null:
+		return
+	o.roles = Rom.roles(model)
+	for role in ["idle", "walk", "run"]:
+		if str(o.roles.get(role, "")) != "":
+			(o.anim as AnimationPlayer).get_animation(o.roles[role]).loop_mode = Animation.LOOP_LINEAR
+	for role in ["attack", "hurt", "die"]:
+		if str(o.roles.get(role, "")) != "":
+			(o.anim as AnimationPlayer).get_animation(o.roles[role]).loop_mode = Animation.LOOP_NONE
+	_enemy_anim(o, "idle")
+
+
+# Plays one of the enemy's animations; returns its length (0 if it has none for that).
+func _enemy_anim(o: Dictionary, role: String, speed := 1.0) -> float:
+	var player_node := o.get("anim") as AnimationPlayer
+	if player_node == null:
+		return 0.0
+	var name := str(o.roles.get(role, ""))
+	if name == "" and role == "run":
+		name = str(o.roles.get("walk", ""))
+		speed *= 1.6
+	elif name == "" and role == "walk":
+		name = str(o.roles.get("run", ""))
+		speed *= 0.6
+	if name == "":
+		return 0.0
+	player_node.speed_scale = speed
+	if o.get("anim_now", "") != role or role in ["attack", "hurt"]:
+		player_node.play(name, 0.12)
+		if role in ["attack", "hurt"]:
+			player_node.seek(0.0, true)   # start over even if it was already playing
+		o.anim_now = role
+	return player_node.get_animation(name).length / speed
+
+
+func _knock_player(from: Vector3) -> void:
+	var away := player.position - from
+	away.y = 0
+	player.velocity = away.normalized() * 8.0 + Vector3(0, 5, 0)
+	knock_t = 0.35
+	_hurt(1)
+
+
 func _enemy_step(uid: String, o: Dictionary, delta: float) -> void:
 	var body := o.node as CharacterBody3D
 	if body == null:
 		return
-	var radius := float(o.obj.props.get("patrol_radius", 4.0))
-	var home: Vector3 = o.home
-	var target: Vector3 = o.get("wander", home)
-	var speed := 2.0
+	var look := body.get_node_or_null("Look") as Node3D
 	o.stun = float(o.get("stun", 0.0)) - delta
-	var to_player := player.position - body.position
-	if to_player.length() < 8.0 and (player.position - home).length() < radius + 12.0:
-		target = player.position
-		speed = 4.2
-	elif body.position.distance_to(target) < 0.5 or float(o.get("wander_t", 0.0)) <= 0.0:
-		var angle := randf() * TAU
-		o.wander = home + Vector3(cos(angle), 0, sin(angle)) * randf() * max(radius, 0.1)
-		o.wander_t = randf_range(2.0, 5.0)
-	o.wander_t = float(o.get("wander_t", 0.0)) - delta
-	var flat := target - body.position
-	flat.y = 0
+	o.cooldown = float(o.get("cooldown", 0.0)) - delta
 	var v := Vector3.ZERO
-	if float(o.stun) > 0.0:
+	var to_player := player.position - body.position
+	to_player.y = 0
+	if o.get("dead", false):
+		o.dead_t = float(o.dead_t) + delta
+		if o.stun > 0.0:
+			v = o.get("knock", Vector3.ZERO) * 0.5
+		if o.dead_t > 4.0:   # the body stays a while, then it's gone
+			_hide(uid)
+			return
+	elif o.get("attacking", false):
+		o.attack_t = float(o.attack_t) + delta
+		if look and to_player.length() > 0.1:
+			look.rotation.y = lerp_angle(look.rotation.y, atan2(-to_player.x, -to_player.z) - body.rotation.y, 0.2)
+		if not o.get("attack_hit", false) and o.attack_t >= float(o.attack_len) * 0.45:
+			o.attack_hit = true
+			var facing := -look.global_transform.basis.z if look else to_player
+			if to_player.length() < 2.0 and absf(player.position.y - body.position.y) < 1.5 \
+					and facing.normalized().dot(to_player.normalized()) > 0.3 and not busy:
+				_knock_player(body.position)
+		if o.attack_t >= float(o.attack_len):
+			o.attacking = false
+			o.cooldown = 0.9
+	elif o.stun > 0.0:
 		v = o.get("knock", Vector3.ZERO)
 		o.knock = (o.knock as Vector3).lerp(Vector3.ZERO, 0.15)
-	elif flat.length() > 0.6 and radius > 0.0:
-		v = flat.normalized() * speed
-		var look := body.get_node_or_null("Look") as Node3D
-		if look:
-			look.rotation.y = lerp_angle(look.rotation.y, atan2(-v.x, -v.z) - body.rotation.y, 0.15)
+	else:
+		var radius := float(o.obj.props.get("patrol_radius", 4.0))
+		var home: Vector3 = o.home
+		var target: Vector3 = o.get("wander", home)
+		var speed := 1.6
+		var chasing := to_player.length() < 9.0 and (player.position - home).length() < radius + 12.0 and health > 0
+		if chasing:
+			target = player.position
+			speed = 4.2
+			if to_player.length() < 1.6 and o.cooldown <= 0.0 and str(o.roles.get("attack", "")) != "":
+				o.attacking = true
+				o.attack_t = 0.0
+				o.attack_hit = false
+				o.attack_len = maxf(0.3, _enemy_anim(o, "attack"))
+		elif body.position.distance_to(target) < 0.5 or float(o.get("wander_t", 0.0)) <= 0.0:
+			var angle := randf() * TAU
+			o.wander = home + Vector3(cos(angle), 0, sin(angle)) * randf() * max(radius, 0.1)
+			o.wander_t = randf_range(2.0, 5.0)
+		o.wander_t = float(o.get("wander_t", 0.0)) - delta
+		var flat := target - body.position
+		flat.y = 0
+		if not o.get("attacking", false) and flat.length() > (1.2 if chasing else 0.4) and radius > 0.0:
+			v = flat.normalized() * speed
+			if look:
+				look.rotation.y = lerp_angle(look.rotation.y, atan2(-v.x, -v.z) - body.rotation.y, 0.15)
+			_enemy_anim(o, "run" if chasing else "walk")
+		elif not o.get("attacking", false):
+			_enemy_anim(o, "idle")
 	body.velocity.x = v.x
 	body.velocity.z = v.z
 	body.velocity.y = 0.0 if body.is_on_floor() else body.velocity.y - GRAVITY * delta
@@ -596,6 +739,8 @@ func _hide(uid: String) -> void:
 
 func _hurt(amount: int) -> void:
 	health -= amount
+	flash.color.a = 0.35
+	create_tween().tween_property(flash, "color:a", 0.0, 0.4)
 	if health <= 0:
 		lives -= 1
 		health = 6

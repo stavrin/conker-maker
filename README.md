@@ -63,7 +63,7 @@ Editor controls:
 | Camera | Right-drag orbit, middle-drag pan, wheel zoom, F focus on the selection |
 | Turn / tilt / duplicate / delete | Q and E (Shift: tilt forward/back, Alt: tilt left/right) / Ctrl+D / Delete |
 | Undo / redo / save | Ctrl+Z / Ctrl+Y / Ctrl+S |
-| Play here | WASD run (Shift: walk), Space jump (hold in the air to hover), F or left click: frying pan, E talk/press, right-drag or arrows: camera, wheel: zoom, Esc back |
+| Play here | WASD run (Shift: walk), Space jump (hold in the air to hover), F or left click: frying pan (on the ground or in the air), E talk/press, mouse or arrows: camera (the pointer hides while you play; click to hide it again), wheel: zoom, Esc back |
 
 ## Using cmtools directly
 

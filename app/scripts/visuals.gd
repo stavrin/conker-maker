@@ -116,7 +116,8 @@ static func fit_model(model: Node3D, info: Dictionary) -> Dictionary:
 		model.rotation.y = PI
 		var player := Rom.animation_player(model)
 		if player:
-			var anim := Rom.find_animation(player, info.get("anim", ""))
+			var anim: String = Rom.find_animation(player, info.anim) if info.get("anim", "") != "" \
+					else Rom.roles(model).get("idle", "")
 			if anim != "":
 				player.get_animation(anim).loop_mode = Animation.LOOP_LINEAR
 				player.play(anim)

@@ -21,7 +21,8 @@ func _ready() -> void:
 			o.props.model = Rom.model_ref("b01-0075-00")
 	lvl.events.clear()   # no intro dialogue in the way
 	lvl.objects.append({"uid": "teddy", "type": "enemy", "position": [10, 0, -10], "rotation_y": 0, "scale": 1.0,
-			"props": {"model": Rom.model_ref("b01-0090-00"), "health": 2, "patrol_radius": 3.0}})
+			"props": {"model": Rom.model_ref("b01-0095-00"), "health": 2, "patrol_radius": 3.0}})
+	lvl.objects.append({"uid": "pad", "type": "context_pad", "position": [-6, 0, -4], "rotation_y": 0, "scale": 1.0, "props": {}})
 	ed._reload_view("")
 	await snap("edit.png")
 	ed._play()
@@ -31,11 +32,14 @@ func _ready() -> void:
 	print("idle anim: ", p.player_anim.current_animation if p.player_anim else "none", " look y ", p.player.get_node("Look").get_meta("model").get_child(0).position.y)
 	# Enemy chases: distance shrinks.
 	var teddy = p.objects["teddy"].node
+	print("teddy roles ", p.objects["teddy"].roles, " anim now ", p.objects["teddy"].get("anim_now"), " playing ", p.objects["teddy"].anim.current_animation if p.objects["teddy"].anim else "none")
+	print("mouse captured ", Input.mouse_mode == Input.MOUSE_MODE_CAPTURED)
 	var d0 = teddy.position.distance_to(p.player.position)
 	print("floor ", p.player.is_on_floor(), " busy ", p.busy, " teddy floor ", teddy.is_on_floor(), " home ", p.objects["teddy"].home, " player ", p.player.position)
 	for i in 60:
 		await get_tree().physics_frame
 	var d1 = teddy.position.distance_to(p.player.position)
+	print("teddy anim while chasing ", p.objects["teddy"].get("anim_now"))
 	print("enemy distance %.2f -> %.2f" % [d0, d1], " vel ", teddy.velocity, " pos ", teddy.position, " wander ", p.objects["teddy"].get("wander"))
 	# Frying pan: put Teddy in front of Conker and swing.
 	p.knock_t = 0
@@ -50,7 +54,64 @@ func _ready() -> void:
 	print("attacking ", p.attacking, " pan visible ", p.pan.visible if p.pan else "no pan", " anim ", p.player_anim.current_animation)
 	for i in 80:
 		await get_tree().physics_frame
-	print("teddy hits ", p.objects["teddy"].get("hits", 0), " hidden ", p.hidden.has("teddy"))
+	print("teddy hits ", p.objects["teddy"].get("hits", 0), " hidden ", p.hidden.has("teddy"), " anim ", p.objects["teddy"].get("anim_now"))
+	# Teddy attacks Conker when close.
+	var h0 = p.health
+	p.objects["teddy"].cooldown = 0.0
+	p.objects["teddy"].stun = 0.0
+	teddy.position = p.player.position + Vector3(1.2, 0, 0)
+	var saw_attack = false
+	for i in 90:
+		await get_tree().physics_frame
+		if p.objects["teddy"].get("attacking", false):
+			saw_attack = true
+	print("teddy attacked ", saw_attack, " health %d -> %d" % [h0, p.health])
+	# Second hit kills: death animation and blood.
+	p.health = 6
+	p.attacking = false
+	p.knock_t = 0
+	await get_tree().physics_frame
+	look_dir = -(p.player.get_node("Look") as Node3D).global_transform.basis.z
+	teddy.position = p.player.position + look_dir * 1.3
+	p.objects["teddy"].attacking = false
+	p.objects["teddy"].cooldown = 5.0
+	p._attack()
+	for i in 24:
+		await get_tree().physics_frame
+	print("teddy dead ", p.objects["teddy"].get("dead", false), " anim ", p.objects["teddy"].get("anim_now"), " ", p.objects["teddy"].anim.current_animation)
+	await snap("blood.png", 6)
+	for i in 40:
+		await get_tree().physics_frame
+	await snap("dead.png", 2)
+	# Standing on the B pad: Conker stays on top of it.
+	var pad = p.objects["pad"].node
+	p.player.position = pad.position + Vector3(0, 1.5, 0)
+	p.player.velocity = Vector3.ZERO
+	for i in 60:
+		await get_tree().physics_frame
+	print("on pad: y %.2f floor %s (pad at %.2f)" % [p.player.position.y, p.player.is_on_floor(), pad.position.y])
+	await snap("pad.png", 4)
+	# Jump and hover: hold Space.
+	p.player.position = Vector3(0, 0.1, 6)
+	for i in 20:
+		await get_tree().physics_frame
+	var space := InputEventKey.new()
+	space.keycode = KEY_SPACE
+	space.physical_keycode = KEY_SPACE
+	space.pressed = true
+	Input.parse_input_event(space)
+	var top := 0.0
+	var hover_seen := false
+	for i in 150:
+		await get_tree().physics_frame
+		top = max(top, p.player.position.y)
+		if p._anim_now == "hover" and not hover_seen:
+			hover_seen = true
+			print("hover anim speed while hovering %.1f" % p.player_anim.speed_scale)
+	print("jump peak %.2f m, hovered %s, hover anim speed %.1f" % [top, hover_seen, p.player_anim.speed_scale if hover_seen else 0.0])
+	await snap("hover.png", 2)
+	space.pressed = false
+	Input.parse_input_event(space)
 	# Walk into the barkeep: he's solid.
 	var bk = p.objects["barkeep"].node
 	p.player.position = bk.position + Vector3(0, 0.1, 3)

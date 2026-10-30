@@ -122,7 +122,7 @@
           "default": null
         }
       },
-      "rom_model": "b01-0064-00"
+      "rom_model": "b09-0164-00"
     },
     "chocolate": {
       "label": "Chocolate",
@@ -180,7 +180,7 @@
       "group": "Characters",
       "color": "#b02a2a",
       "shape": "capsule",
-      "help": "A baddie that wanders near where it's placed and hurts Conker on contact.",
+      "help": "A baddie that wanders near where it's placed, chases Conker and attacks him up close. Two frying-pan hits (or its health) finish it.",
       "props": {
         "model": {
           "kind": "rom_model",
@@ -198,7 +198,8 @@
           "min": 0,
           "max": 50
         }
-      }
+      },
+      "rom_model": "b01-0090-00"
     },
     "prop": {
       "label": "Prop",
@@ -279,7 +280,8 @@
       "shown_from": 0.17,
       "shown_until": 1.0,
       "hit_at": 0.35
-    }
+    },
+    "hover_speed": 2.2
   },
   "events": {
     "triggers": {
@@ -359,6 +361,22 @@
           "seconds": "float"
         }
       }
+    }
+  },
+  "character_animations": {
+    "note": "Which animation pair each character uses for idle, walk, run, attack, hurt and die, checked by rendering them. Characters not listed get theirs worked out from the poses; characters stored without animations (the Tedi soldiers, the Tedi General...) borrow a look-alike's, so its entry applies to them too.",
+    "b01-0090-00": {
+      "name": "Tediz",
+      "idle": "pair_0000_",
+      "walk": "pair_0052_",
+      "run": "pair_0002_",
+      "attack": "pair_0044_",
+      "hurt": "pair_0014_",
+      "die": "pair_0005_"
+    },
+    "b01-0064-00": {
+      "name": "Cash — animated bundle",
+      "idle": "pair_0002_"
     }
   }
 }

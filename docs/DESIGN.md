@@ -159,6 +159,15 @@ app finds it in the library, and the runtime mod will find it in the ROM. One N6
 idle, run, jump and hover animations are chosen by logical animation pair in
 `catalog/objects.json`, found by looking at them, so they're easy to correct.
 
+Other characters get their idle, walk, run, attack, hurt and death animations worked out
+from the poses (`app/scripts/anim_roles.gd`: does it loop, how far apart do the feet get,
+does it end lying down, how far forward does it reach). For the Tediz this picks exactly
+the clips found by eye. Reviewed choices go in `character_animations` in
+`catalog/objects.json` and win over the guesses. Some characters (the Tedi soldiers, the
+Tedi General) are stored without animations of their own but share a skeleton with one
+that has them; cmtools records that donor as `anim_from` in the library catalog and the
+app borrows its clips (rotations only, so the different body proportions are kept).
+
 ## How a level becomes real in Bad Fur Day
 
 This is the hard part, and the reason for the milestones below. Bad Fur Day's levels
