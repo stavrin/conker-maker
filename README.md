@@ -63,7 +63,7 @@ Editor controls:
 | Camera | Right-drag orbit, middle-drag pan, wheel zoom, F focus on the selection |
 | Turn / tilt / duplicate / delete | Q and E (Shift: tilt forward/back, Alt: tilt left/right) / Ctrl+D / Delete |
 | Undo / redo / save | Ctrl+Z / Ctrl+Y / Ctrl+S |
-| Play here | WASD run (Shift: walk), Space jump (hold in the air to hover), F or left click: frying pan (on the ground or in the air), E talk/press, mouse or arrows: camera (the pointer hides while you play; click to hide it again), wheel: zoom, Esc back |
+| Play here | WASD run (Shift: walk), Space jump (hold in the air to hover; jump at a high ledge to grab it, then Space/W climbs, S lets go), F or left click: frying pan (on the ground or in the air), E talk/press; in water: WASD swim, Space jumps out (underwater: swims up), C dives, swim into a low bank to climb out; mouse or arrows: camera (the pointer hides while you play; click to hide it again), wheel: zoom, walk into a Carried Item to pick it up, Tab skips a cutscene, Esc back |
 
 ## Using cmtools directly
 
@@ -87,6 +87,25 @@ sh runtime_mod/build.sh /path/to/CBFD-Recompiled
 
 Copy `runtime_mod/build/conker_maker_runtime.nrm` into the recomp's `mods` folder and
 enable it in the Mods menu. A prebuilt copy is in `runtime_mod/prebuilt/`.
+
+### What the runtime plays so far (v0.3)
+
+A level built on a game scene (its ground is a ROM scene) plays in that scene in the real
+game: when the scene comes into play, Conker is put at the level's Conker Start and its
+"Level starts" events run. Give/Take cash change his real wallet, story flags and waits
+work, and lines are printed to the console (run ConkerRecomp from a terminal to see them).
+Anything else (cameras, moving characters, showing and hiding objects) is named in the
+console as skipped.
+
+**Game Actor** objects (Characters group) are the game's own characters and things, by actor
+number: the mod adds them to the scene's actor table and the game spawns them. What each
+number is isn't named yet: [docs/ACTORS.md](docs/ACTORS.md) lists where each is used and how
+the game spawns them. Other placed objects don't appear in the real game yet.
+
+The game code shows `scene-12` is the game's scene 0x0C (the same number everywhere). If a
+scene ever needs overriding, set `"game_scene"` in the level's `base`. Facing still needs a
+check: turn on "Log Conker's Position", stand Conker facing along an axis and compare with the
+editor. Positions are editor metres × 100.
 
 ## Credits
 

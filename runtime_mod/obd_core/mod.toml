@@ -4,21 +4,24 @@
 # ROM's free space (see conker_maker/cmtools/package.py); this mod finds it and, as it
 # grows, turns its levels, objects and events into the real game's.
 #
-# v0.1 (skeleton): finds and announces the package, and logs scene changes to the
-# console, which is how the scene IDs in catalog/scenes.json get mapped.
+# v0.2: reads the game's runtime block; when a level's scene comes into play, puts Conker at
+# its Conker Start and runs its Level-start events (cash, story flags, waits; lines go to the
+# console). Logs scenes and Conker's position, to check the editor -> game conversion.
+# v0.3: Game Actor objects are appended to the scene's actor table, so the game spawns them.
 
 [manifest]
 id = "conker_maker_runtime"
-version = "0.1.0"
+version = "0.3.0"
 display_name = "Conker Maker Runtime"
 description = """
 Plays games made with Conker Maker. Load a Conker Maker game's ROM with the \
-launcher's Add ROM, enable this mod, and start the game. This early version only \
-detects the game and logs scene changes for development."""
+launcher's Add ROM, enable this mod, and start the game. This early version puts \
+Conker at your levels' starts and runs their Level-start events; lines and logs go to \
+the console."""
 short_description = "Plays games made with Conker Maker."
 authors = [ "Conker Maker" ]
 game_id = "conker"
-minimum_recomp_version = "0.1.0"
+minimum_recomp_version = "0.3.0"
 dependencies = []
 optional_dependencies = []
 native_libraries = []
@@ -37,3 +40,27 @@ description = "Prints each scene the game loads to the console (for Conker Maker
 type = "Enum"
 options = [ "Off", "On" ]
 default = "On"
+
+[[manifest.config_options]]
+id = "place_conker"
+name = "Place Conker at Level Start"
+description = "When a level's scene comes into play, puts Conker at its Conker Start."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "On"
+
+[[manifest.config_options]]
+id = "place_actors"
+name = "Place Game Actors"
+description = "Adds your levels' Game Actor objects to the game's scenes."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "On"
+
+[[manifest.config_options]]
+id = "log_position"
+name = "Log Conker's Position"
+description = "Prints Conker's position and facing every two seconds (for checking where your levels put him)."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "Off"

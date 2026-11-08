@@ -55,7 +55,7 @@ gets built in.
 | --- | --- | --- |
 | Conker Maker app | `app/` (Godot 4.3+, tested on 4.7.2) | **Working skeleton**: ROM gate, hub, editor, events, preview, build and playtest buttons |
 | cmtools | `cmtools/` (Python 3.10+) | **Working**: ROM identification, project validation, packing, BPS create/apply, playtest launch |
-| Object catalog | `catalog/objects.json` | 13 object types, 6 triggers, 8 actions; shared by app and cmtools |
+| Object catalog | `catalog/objects.json` | 17 object types, 8 triggers, 16 actions; shared by app and cmtools |
 | Scene catalog | `catalog/scenes.json` | 35 known BFD scenes (chapter-table indices and names) |
 | Runtime mod | `runtime_mod/obd_core/` | **Skeleton, builds**: finds the game package in the ROM, logs scene changes |
 | ROM asset importer | `cmtools/rom_assets.py`, `decomp_levels.py`, `app/scripts/rom_library.gd`, `model_browser.gd` | **Working**: 1,485 models (with 764 Conker animations), 55 complete levels, music, voices and sounds; model and level browsers |
@@ -76,10 +76,22 @@ Godot (the same approach as Summer Engine and other Godot-based tools). Screens:
 - **Level editor.** A palette of object types, a 3D view (orbit, pan, zoom, click to
   place, drag to move, Shift-drag to raise, 0.5 m snapping), an inspector generated
   from the catalog, an Events tab, undo/redo, save, a level picker and new levels.
-- **Play here.** Walk the level as a stand-in Conker (run, jump, tail-hover), collect
-  cash, chocolate and tails, talk to characters, press B pads, ride platforms, stomp
-  enemies, walk through exits to other levels, and run your events. It's for checking
-  layout and logic in seconds.
+- **Play here.** Walk the level as Conker (run, jump, tail-hover, grab and climb
+  ledges, swim and dive in Water, holding his breath), collect cash, chocolate and tails, talk to characters, press B pads, ride
+  platforms, fight enemies with the frying pan, walk through exits to other levels, and
+  run your events. It's for checking layout and logic in seconds.
+- **Cutscenes and quests.** Tick "Cutscene" on an event and it plays as one: black bars,
+  Conker waits, "Cutscene: cut to a camera" cuts or glides to a Camera object (placed and
+  aimed like any object; "Look through this camera" previews it), characters can be moved to
+  Spots, turned, animated, and enemies defeated or shot at; Tab skips. A Carried Item is
+  picked up by walking into it and fires "When Conker delivers" when taken to its target.
+  Cash can wait for a story flag ("Appears when") and be grabbed in a short cutscene with
+  Conker's eyes turning to dollar signs. Enemies can fly and wake on a flag. The template's
+  "Windy: Mrs. Bee's Hive" level rebuilds the Mrs. Bee quest with all of it.
+- **Events with conditions.** Any event can have "only if" lines (Conker has at least
+  N cash, a story flag is or isn't set). On "After Conker talks to", an event whose
+  conditions are met replaces the character's usual lines, which is how the template's
+  barkeep takes your 30 bucks. "Take cash from Conker" is the matching action.
 - **Build / Playtest in recomp.** Runs `cmtools build`, then starts ConkerRecomp.exe
   with the built ROM.
 

@@ -7,6 +7,7 @@ signal object_changed(uid)        # redraw this object
 signal object_renamed(old_uid, new_uid)
 signal level_changed              # redraw the whole level (ground etc.)
 signal game_changed               # titles, chapters
+signal look_through(uid)           # show a Camera object's view in the 3D view
 
 const Main := preload("res://scripts/main.gd")
 
@@ -62,7 +63,15 @@ func _build_object() -> void:
 		var field: Dictionary = props_spec[key]
 		if not obj.props.has(key):
 			obj.props[key] = field.get("default")
-		_row(key.capitalize(), _prop_editor(key, field))
+		var editor := _prop_editor(key, field)
+		editor.tooltip_text = field.get("help", "")
+		_row(key.capitalize(), editor)
+	if obj.type == "camera":
+		var look := Button.new()
+		look.text = "Look through this camera"
+		look.tooltip_text = "Shows its view in the 3D view. Orbit or pan to go back."
+		look.pressed.connect(func(): look_through.emit(obj.uid))
+		add_child(look)
 	var hint := Main.note_label("Delete: remove   Ctrl+D: duplicate   Q/E: turn   Shift+Q/E: tilt forward/back   Alt+Q/E: tilt left/right   F: focus")
 	add_child(hint)
 
@@ -82,8 +91,13 @@ func _rename(new_uid: String) -> void:
 		if event.get("when", {}).get("object") == old_uid:
 			event.when.object = new_uid
 		for action in event.get("do", []):
-			if action.get("object") == old_uid:
-				action.object = new_uid
+			for field in ["object", "to", "target", "camera"]:
+				if action.get(field) == old_uid:
+					action[field] = new_uid
+	for other in level.get("objects", []):   # and objects pointing at it (where to deliver things)
+		for key in other.get("props", {}):
+			if other.props[key] is String and other.props[key] == old_uid and key == "deliver_to":
+				other.props[key] = new_uid
 	object_renamed.emit(old_uid, new_uid)
 
 
@@ -112,6 +126,19 @@ func _prop_editor(key: String, field: Dictionary) -> Control:
 				option.add_item(App.levels[id].get("title", id))
 				option.set_item_metadata(option.item_count - 1, id)
 				if id == value:
+					option.select(option.item_count - 1)
+			option.item_selected.connect(func(i): before_change.emit(); set_value.call(option.get_item_metadata(i)))
+			return option
+		"object":
+			var option := OptionButton.new()
+			option.add_item("(none)")
+			option.set_item_metadata(0, "")
+			for other in level.get("objects", []):
+				if other.uid == obj.uid:
+					continue
+				option.add_item(other.uid)
+				option.set_item_metadata(option.item_count - 1, other.uid)
+				if other.uid == value:
 					option.select(option.item_count - 1)
 			option.item_selected.connect(func(i): before_change.emit(); set_value.call(option.get_item_metadata(i)))
 			return option

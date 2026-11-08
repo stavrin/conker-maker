@@ -68,6 +68,26 @@ static func shape_for(obj: Dictionary, spec: Dictionary) -> Dictionary:
 			m.radius = 0.2
 			m.height = 0.9
 			return {"mesh": m, "offset": Vector3(0, 0.7, 0), "size": Vector3(0.6, 1, 0.6), "spin": true}
+		"camera":
+			var h := float(props.get("height", 1.6))
+			var m := BoxMesh.new()
+			m.size = Vector3(0.35, 0.3, 0.45)
+			return {"mesh": m, "offset": Vector3(0, h, 0), "size": Vector3(0.6, h + 0.4, 0.6), "camera": true}
+		"spot":
+			var m := CylinderMesh.new()
+			m.top_radius = 0.45
+			m.bottom_radius = 0.45
+			m.height = 0.06
+			return {"mesh": m, "offset": Vector3(0, 0.03, 0), "size": Vector3(0.9, 0.3, 0.9)}
+		"crate":
+			var m := BoxMesh.new()
+			m.size = Vector3(0.7, 0.7, 0.7)
+			return {"mesh": m, "offset": Vector3(0, 0.35, 0), "size": Vector3(0.7, 0.7, 0.7)}
+		"water":
+			var size := vec3(props.get("size"), Vector3(8, 3, 8))
+			var m := BoxMesh.new()
+			m.size = size
+			return {"mesh": m, "offset": Vector3(0, size.y / 2.0, 0), "size": size, "water": true}
 		_:
 			var size := vec3(props.get("size"), Vector3(2, 2, 2))
 			var m := BoxMesh.new()
@@ -112,8 +132,9 @@ static func fit_model(model: Node3D, info: Dictionary) -> Dictionary:
 	var size: Vector3 = info.size
 	var lift := 0.0
 	if Rom.is_skinned(model):
-		# Characters stand on their origin, facing +Z in the ROM: turn them to face forward (-Z).
+		# Characters face +Z in the ROM (animated or not, like Mrs. Bee): turn them to face -Z.
 		model.rotation.y = PI
+	if Rom.is_skinned(model) and Rom.animation_player(model) != null:
 		var player := Rom.animation_player(model)
 		if player:
 			var anim: String = Rom.find_animation(player, info.anim) if info.get("anim", "") != "" \
@@ -126,7 +147,8 @@ static func fit_model(model: Node3D, info: Dictionary) -> Dictionary:
 		holder.add_child(fit)
 		info.spin = false   # animated characters and pickups play their own animation instead
 	else:
-		# Static models: centre on the position, resting on the ground.
+		# Static models (and skinned ones with nothing to play, like the cash wad): centre on
+		# the position, resting on the ground.
 		var box := Rom.aabb_of(model)
 		box = AABB(box.position * Rom.world_scale, box.size * Rom.world_scale)
 		model.position = -Vector3(box.get_center().x, box.position.y, box.get_center().z)
@@ -147,6 +169,28 @@ static func _build_primitive(root: Node3D, obj: Dictionary, spec: Dictionary, in
 		mi.rotation_degrees.x = 90
 	mi.material_override = material(Color(spec.get("color", "#888888")), spec.get("translucent", false))
 	root.add_child(mi)
+	if info.get("water", false):
+		_dress_water(root, mi, info.size)
+	if info.get("camera", false):   # a lens pointing the way the camera looks, and a post to the ground
+		var lens := MeshInstance3D.new()
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.02
+		cone.bottom_radius = 0.16
+		cone.height = 0.3
+		lens.mesh = cone
+		lens.rotation_degrees.x = 90
+		lens.position = info.offset + Vector3(0, 0, -0.35)
+		lens.material_override = material(Color("2a1d33"))
+		root.add_child(lens)
+		var post := MeshInstance3D.new()
+		var stick := CylinderMesh.new()
+		stick.top_radius = 0.03
+		stick.bottom_radius = 0.03
+		stick.height = maxf(info.offset.y - 0.15, 0.01)
+		post.mesh = stick
+		post.position = Vector3(0, stick.height / 2.0, 0)
+		post.material_override = material(Color("6d5a78"), true)
+		root.add_child(post)
 	if info.get("spin", false):
 		root.set_meta("spin", mi)
 	if spec.get("shape") == "flag":
@@ -165,6 +209,47 @@ static func _build_primitive(root: Node3D, obj: Dictionary, spec: Dictionary, in
 		nose.position = Vector3(0, 1.4, -0.5)
 		nose.material_override = material(Color("1e1712"))
 		root.add_child(nose)
+
+
+# Water: a see-through blue body, and a rippling surface on top.
+const WATER_SHADER := """
+shader_type spatial;
+render_mode blend_mix, cull_disabled, depth_draw_opaque, specular_schlick_ggx;
+uniform vec4 tint : source_color = vec4(0.08, 0.32, 0.66, 0.6);
+void fragment() {
+	vec2 p = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xz;
+	float t = TIME;
+	float w = sin(p.x * 1.7 + t * 1.3) + sin(p.y * 2.1 - t * 1.1) + sin((p.x + p.y) * 1.1 + t * 0.7);
+	vec3 n = normalize(vec3(cos(p.x * 1.7 + t * 1.3) * 0.12, 1.0, cos(p.y * 2.1 - t * 1.1) * 0.12));
+	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	ALBEDO = tint.rgb + vec3(0.04) * w;
+	ALPHA = tint.a;
+	ROUGHNESS = 0.08;
+	SPECULAR = 0.7;
+}
+"""
+
+static func _dress_water(root: Node3D, body: MeshInstance3D, size: Vector3) -> void:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.06, 0.26, 0.58, 0.4)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 0.2
+	body.material_override = m
+	var top := MeshInstance3D.new()
+	top.name = "Surface"
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(size.x, size.z)
+	plane.subdivide_width = 8
+	plane.subdivide_depth = 8
+	top.mesh = plane
+	top.position = Vector3(0, size.y - 0.01, 0)
+	var shader := Shader.new()
+	shader.code = WATER_SHADER
+	var sm := ShaderMaterial.new()
+	sm.shader = shader
+	top.material_override = sm
+	root.add_child(top)
 
 
 static func _add_tag_and_pick(root: Node3D, obj: Dictionary, spec: Dictionary, info: Dictionary, pickable: bool) -> void:

@@ -49,6 +49,7 @@ def validate(game: dict) -> list[str]:
     """Problems a player would hit, in plain words. Empty means good to build."""
     cat = catalog()
     types, triggers, actions = cat["objects"], cat["events"]["triggers"], cat["events"]["actions"]
+    conditions = cat["events"].get("conditions", {})
     problems: list[str] = []
     if game.get("format") != GAME_FORMAT:
         problems.append(f"game.json: format should be '{GAME_FORMAT}'.")
@@ -92,6 +93,9 @@ def validate(game: dict) -> list[str]:
             model = obj.get("props", {}).get("model")
             if model is not None and not (isinstance(model, dict) and re.match(r"^b\d\d-\d{4}-\d\d$", str(model.get("id", "")))):
                 problems.append(f"{where}: '{obj.get('uid')}' has a model that isn't a ROM model reference.")
+            deliver = obj.get("props", {}).get("deliver_to")
+            if kind == "carryable" and deliver and deliver not in by_uid:
+                problems.append(f"{where}: '{obj.get('uid')}' is delivered to '{deliver}', which isn't in the level.")
             if kind == "level_exit":
                 target = obj.get("props", {}).get("target_level")
                 if target not in levels:
@@ -109,6 +113,9 @@ def validate(game: dict) -> list[str]:
                 target = by_uid.get(when.get("object"))
                 if target is None or target.get("type") != trig["object"]:
                     problems.append(f"{label}: '{trig['label']}' needs a {types[trig['object']]['label']}.")
+            for condition in event.get("only_if", []):
+                if condition.get("type") not in conditions:
+                    problems.append(f"{label}: unknown condition '{condition.get('type')}'.")
             for action in event.get("do", []):
                 spec = actions.get(action.get("type"))
                 if spec is None:
@@ -118,6 +125,10 @@ def validate(game: dict) -> list[str]:
                     value = action.get(field)
                     if kind == "object" and value not in by_uid:
                         problems.append(f"{label}: '{spec['label']}' points at a missing object '{value}'.")
+                    if kind == "who" and value != "conker" and value not in by_uid:
+                        problems.append(f"{label}: '{spec['label']}' needs Conker or an object (has '{value}').")
+                    if kind == "camera" and by_uid.get(value, {}).get("type") != "camera":
+                        problems.append(f"{label}: '{spec['label']}' needs a Camera (has '{value}').")
                     if kind == "level" and value not in levels:
                         problems.append(f"{label}: '{spec['label']}' points at a missing level '{value}'.")
     return problems

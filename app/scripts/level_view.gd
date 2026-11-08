@@ -223,7 +223,18 @@ func _plane_point(pos: Vector2, y: float) -> Vector3:
 	return hit if hit != null else Vector3(focus.x, y, focus.z)
 
 
+# Shows what a Camera object sees, until the camera is next orbited, panned or zoomed.
+func look_through(obj: Dictionary) -> void:
+	var node := Node3D.new()
+	Visuals.apply_transform(node, obj)
+	camera.transform = Transform3D(node.basis.orthonormalized(),
+			node.position + Vector3(0, float(obj.get("props", {}).get("height", 1.6)), 0))
+	camera.fov = float(obj.get("props", {}).get("fov", 55.0))
+	node.free()
+
+
 func _update_camera() -> void:
+	camera.fov = 55
 	var basis := Basis.from_euler(Vector3(deg_to_rad(pitch), deg_to_rad(yaw), 0))
 	camera.position = focus + basis * Vector3(0, 0, distance)
 	camera.look_at(focus)

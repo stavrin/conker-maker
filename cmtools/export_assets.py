@@ -156,6 +156,8 @@ def export(library: str | Path, out: str | Path, say=print) -> dict:
     for music in audio.get("music", []):
         folder = root / "Music" / safe_name(music.get("category") or "Other")
         stem = f"{music['index']:04d} {safe_name(music['name'])}"
+        if music.get("game_label") and music["game_label"] != music["name"]:   # album title (the game's name)
+            stem += f" ({safe_name(music['game_label'], 40)})"
         copy(music.get("wav"), folder / f"{stem}.wav", "music", music["index"], music["name"], music.get("category", ""))
         copy(music.get("midi"), folder / f"{stem}.mid", "music-midi", music["index"], music["name"], music.get("category", ""))
     stream_names = {s["index"]: s.get("name") for s in audio.get("music_streams", [])}
@@ -187,7 +189,8 @@ def export(library: str | Path, out: str | Path, say=print) -> dict:
         "without names are listed by ROM id (bank-entry-segment). Conker's animations that Conker Maker\n"
         "has identified are labelled (idle, walk, run, jump, hover, attack); the rest keep their ROM names.\n\n"
         "Music/ is rendered with the game's own instrument samples (an approximation of the N64's playback),\n"
-        "with the MIDI beside each track. Track names are by-ear identifications from the decomp project.\n"
+        "with the MIDI beside each track. Track names are the soundtrack album titles the decomp project\n"
+        "matched to each piece (a ? or (guess) means not settled), with the game's own label in brackets.\n"
         "Voices and dialogue/ are the MP3 streams with lip-sync cues; Other streams/ are the rest.\n"
         "Sound effects/ and Instrument samples/ are the sound bank's samples, by instrument.\n\n"
         "index.csv lists every file with its ROM identity.\n", encoding="utf-8")

@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from cmtools import bps, build, package, project, rom as romlib, rom_assets  # noqa: E402
+from cmtools import bps, build, package, project, rom as romlib, rom_assets, runtime  # noqa: E402
 
 
 def fake_rom(region=b"E") -> bytes:
@@ -157,6 +157,36 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(len(built), len(base))
         self.assertEqual(built[:romlib.FREE_START], base[:romlib.FREE_START])
         self.assertEqual(package.read_from(built)["title"], game["title"])
+
+    def test_runtime_block(self):
+        game = project.load(ROOT / "templates" / "new_game")
+        game["levels"]["mrs_bee"]["base"] = {"kind": "rom_scene", "scene": "scene-12"}
+        game["levels"]["mrs_bee"]["objects"].append({"uid": "tedi", "type": "game_actor", "position": [1.5, 0.25, -20],
+                                                     "rotation_y": 90, "scale": 1.0, "props": {"actor": 0x5A}})
+        blob = package.pack(game)
+        self.assertEqual(blob[package.HEADER.unpack_from(blob)[7]] , ord("C"))
+        rt = runtime.read(package.runtime_block(blob))
+        ids = list(game["levels"])
+        self.assertEqual(rt["start_level"], ids.index(game["start_level"]))
+        bee = rt["levels"][ids.index("mrs_bee")]
+        self.assertEqual(bee["scene"], 12)
+        self.assertEqual(bee["name"], "Windy: Mrs. Bee's Hive")
+        self.assertTrue(bee["has_start"])
+        first, count = bee["events"]
+        meet = rt["events"][first]
+        self.assertEqual(meet["trigger"], runtime.TRIGGERS["level_start"])
+        self.assertTrue(meet["cutscene"])
+        cond = rt["conditions"][meet["conditions"][0]]
+        self.assertEqual((cond["type"], cond["text"]), (runtime.CONDITIONS["flag_not_set"], "hive_returned"))
+        acts = rt["actions"][meet["actions"][0]:meet["actions"][0] + meet["actions"][1]]
+        self.assertIn({"type": "say", "a": "Mrs. Bee", "b": "Oh, it's terrible! Simply terrible!", "value": 0}, acts)
+        self.assertEqual(acts[0]["type"], "other")   # hide: not in the real game yet
+        self.assertEqual(acts[0]["a"], "hide")
+        fa, na = bee["actors"]
+        self.assertEqual(na, 1)
+        self.assertEqual(rt["actors"][fa], {"actor": 0x5A, "angle": 0xC0, "position": [150, 25, -2000]})
+        self.assertEqual(runtime.game_angle(90), 0xC000)
+        self.assertEqual(runtime.game_angle(-90), 0x4000)
 
     def test_full_build_with_fake_rom(self):
         with tempfile.TemporaryDirectory() as tmp:

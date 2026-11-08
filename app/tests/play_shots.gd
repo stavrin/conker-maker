@@ -19,9 +19,11 @@ func _ready() -> void:
 	for o in lvl.objects:
 		if o.uid == "barkeep":
 			o.props.model = Rom.model_ref("b01-0075-00")
-	lvl.events.clear()   # no intro dialogue in the way
+	lvl.events = lvl.events.filter(func(e): return e.when.type == "talk_to")   # no intro dialogue in the way
 	lvl.objects.append({"uid": "teddy", "type": "enemy", "position": [10, 0, -10], "rotation_y": 0, "scale": 1.0,
 			"props": {"model": Rom.model_ref("b01-0095-00"), "health": 2, "patrol_radius": 3.0}})
+	lvl.objects.append({"uid": "tower", "type": "platform", "position": [-14, 0, 8], "rotation_y": 0, "scale": 1.0,
+			"props": {"size": [4, 4, 4], "move": [0, 0, 0], "period": 4.0, "solid": true}})
 	lvl.objects.append({"uid": "pad", "type": "context_pad", "position": [-6, 0, -4], "rotation_y": 0, "scale": 1.0, "props": {}})
 	ed._reload_view("")
 	await snap("edit.png")
@@ -120,6 +122,68 @@ func _ready() -> void:
 		p.player.move_and_slide()
 		await get_tree().physics_frame
 	print("closest to barkeep: %.2f" % Vector2(p.player.position.x - bk.position.x, p.player.position.z - bk.position.z).length())
+	# Cash on the moving platform rides along.
+	var c3 = p.objects["cash_3"].node
+	var c3a: Vector3 = c3.position
+	for i in 30:
+		await get_tree().physics_frame
+	print("cash_3 moved %.2f with its platform; spins %s" % [c3.position.distance_to(c3a), c3.has_meta("spin")])
+	# Ledge grab: run and jump at the 4 m tower.
+	var tower = p.objects["tower"].node
+	p.player.position = tower.position + Vector3(3.2, 0.1, 0)
+	p.player.velocity = Vector3.ZERO
+	p.cam_yaw = PI / 2   # facing -X, towards the tower
+	for i in 15:
+		await get_tree().physics_frame
+	var w := InputEventKey.new()
+	w.keycode = KEY_W
+	w.physical_keycode = KEY_W
+	w.pressed = true
+	Input.parse_input_event(w)
+	space.pressed = true
+	Input.parse_input_event(space)
+	var grabbed := false
+	for i in 90:
+		await get_tree().physics_frame
+		if p.ledge_state == "hang":
+			grabbed = true
+			break
+	w.pressed = false
+	Input.parse_input_event(w)
+	space.pressed = false
+	Input.parse_input_event(space)
+	print("ledge grabbed ", grabbed, " at y %.2f anim %s" % [p.player.position.y, p.player_anim.current_animation])
+	p.cam_yaw = PI / 2 + 1.0
+	await snap("hang.png", 20)
+	var sk: Skeleton3D = p.player.find_children("*", "Skeleton3D", true, false)[0]
+	for b in ["joint_10", "joint_05", "joint_13"]:
+		var gp: Vector3 = sk.to_global(sk.get_bone_global_pose(sk.find_bone(b)).origin)
+		print("hang %s at y %.2f (player %.2f), from wall %.2f" % [b, gp.y, p.player.position.y, Vector2(gp.x - (tower.position.x + 2.0), 0).length()])
+	space.pressed = true
+	Input.parse_input_event(space)
+	for i in 25:
+		await get_tree().physics_frame
+	await snap("climbing.png", 1)
+	for i in 45:
+		await get_tree().physics_frame
+	space.pressed = false
+	Input.parse_input_event(space)
+	print("after climb: state '%s' y %.2f floor %s (tower top 4.0)" % [p.ledge_state, p.player.position.y, p.player.is_on_floor()])
+	await snap("climbed.png", 10)
+	# Pay the barkeep with 30 cash.
+	p.cash = 35
+	p.flags.clear()
+	p._talk("barkeep", p.objects["barkeep"].obj)
+	await get_tree().process_frame
+	print("barkeep says: ", p.dialogue_label.text)
+	for i in 3:
+		p._advance = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+	for i in 12:
+		p._advance = true
+		await get_tree().create_timer(0.05).timeout
+	print("after paying: cash %d flags %s" % [p.cash, p.flags.keys()])
 	p.cam_zoom = 0.4
 	await snap("zoomed.png", 30)
 	get_tree().quit()

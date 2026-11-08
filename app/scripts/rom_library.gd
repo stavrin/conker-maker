@@ -18,7 +18,7 @@ var _roles := {}            # model id -> {idle, walk, run, attack, hurt, die}
 var _thread: Thread
 
 const AnimRoles := preload("res://scripts/anim_roles.gd")
-const CATALOG_REVISION := 2   # matches cmtools; older catalogs are rebuilt on load
+const CATALOG_REVISION := 3   # matches cmtools; older catalogs are rebuilt on load
 
 
 func _ready() -> void:

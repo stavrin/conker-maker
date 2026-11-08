@@ -37,7 +37,7 @@ from . import rom as romlib
 DECOMP_REPO = "DevOldSchool/conkers-bfd-decomp"
 DECOMP_COMMIT = "4288820283c66edb65f41e20dc13c89cd8c46e05"
 CATALOG_FORMAT = "conker-maker-rom-library-v1"
-CATALOG_REVISION = 2   # 2: animation donors (anim_from) for characters without their own clips
+CATALOG_REVISION = 3   # 2: animation donors (anim_from); 3: soundtrack album titles for music
 LIBRARY_VERSION = 2   # 2: complete levels (levels/), level names
 # One N64 unit is about a centimetre: Conker comes out about 1.6 m tall at this scale.
 WORLD_SCALE = 0.01
@@ -356,6 +356,7 @@ def audio_catalog(library: Path) -> dict:
                                     "category": label.get("category") or "Other", "confidence": label.get("confidence"),
                                     "note": label.get("note", ""), "wav": None, "midi": None,
                                     "cseq": f"audio/source/sequences/{cseq.name}"})
+    _apply_album_titles(result)
     cues = audio / "cues" / "manifest.json"
     if cues.is_file():
         named = {s["index"] for s in result["music_streams"]}
@@ -373,6 +374,37 @@ def audio_catalog(library: Path) -> dict:
             result["samples"].append({"index": sample["index"], "instruments": instruments,
                                       "wav": f"audio/preview/samples/{sample['index']:04d}.wav"})
     return result
+
+
+def _apply_album_titles(result: dict) -> None:
+    """Give music the titles people know it by: the soundtrack album names the decomp matched to
+    each sequence (config/soundtrack-reference.json, "Windy & Co." for MainTheme). The game's own
+    label is kept as game_label. Titles the decomp doesn't treat as settled get a "?"."""
+    path = default_decomp_dir() / "config" / "soundtrack-reference.json"
+    if not path.is_file():
+        return
+    try:
+        reference = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return
+    titles = {r["index"]: r for r in reference.get("sequence_album_names", []) if r.get("title")}
+    for music in result["music"]:
+        album = titles.get(music["index"])
+        if not album:
+            continue
+        title = album["title"].strip()
+        title = title[0].upper() + title[1:]
+        if not music["name"].startswith("Unidentified"):
+            music["game_label"] = music["name"]
+        elif music.get("category") == "Unidentified":
+            music["category"] = "Other"
+        music["name"] = title if album.get("canonical") else f"{title}?"
+        music["album"] = album.get("album")
+    streams = {r["index"]: r for r in reference.get("music_stream_candidates", []) if r.get("name")}
+    for stream in result["music_streams"]:
+        album = streams.get(stream["index"])
+        if album and not stream.get("name"):
+            stream["name"] = album["name"] if album.get("canonical") else f"{album['name']}?"
 
 
 def level_names() -> dict:

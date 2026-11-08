@@ -93,6 +93,7 @@ func _ready() -> void:
 	inspector.object_renamed.connect(func(old_uid, new_uid): dirty = true; view.rename_node(old_uid, new_uid); events.rebuild(); inspector.show_object(level(), new_uid))
 	inspector.level_changed.connect(func(): dirty = true; _reload_view(view.selected_uid))
 	inspector.game_changed.connect(func(): dirty = true; _refresh_levels())
+	inspector.look_through.connect(func(uid): view.look_through(view.find(uid)))
 
 	browser = ModelBrowser.new()
 	add_child(browser)

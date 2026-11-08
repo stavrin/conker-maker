@@ -78,6 +78,12 @@ func _event_row(event: Dictionary) -> Control:
 	var needs = triggers.get(event.when.type, {}).get("object", false)
 	if needs:
 		head.add_child(_object_picker(event.when.get("object", ""), needs, func(uid): event.when.object = uid))
+	var cine := CheckBox.new()
+	cine.text = "Cutscene"
+	cine.tooltip_text = "Play this event as a cutscene: black bars, Conker waits, cameras can take over\n(\"Cutscene: cut to a camera\"), and Tab skips it."
+	cine.button_pressed = bool(event.get("cutscene", false))
+	cine.toggled.connect(func(on): before_change.emit(); event.cutscene = on)
+	head.add_child(cine)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
@@ -85,6 +91,33 @@ func _event_row(event: Dictionary) -> Control:
 	remove.text = "Delete event"
 	remove.pressed.connect(func(): before_change.emit(); level.events.erase(event); rebuild())
 	head.add_child(remove)
+
+	var conditions: Dictionary = App.catalog.events.get("conditions", {})
+	for condition in event.get("only_if", []):
+		var crow := HBoxContainer.new()
+		box.add_child(crow)
+		var only := Label.new()
+		only.text = "    only if"
+		crow.add_child(only)
+		var ckind := OptionButton.new()
+		for key in conditions:
+			ckind.add_item(conditions[key].label)
+			ckind.set_item_metadata(ckind.item_count - 1, key)
+			if key == condition.get("type"):
+				ckind.select(ckind.item_count - 1)
+		ckind.item_selected.connect(func(i):
+			before_change.emit()
+			condition.clear()
+			condition.type = ckind.get_item_metadata(i)
+			rebuild())
+		crow.add_child(ckind)
+		var cfields: Dictionary = conditions.get(condition.get("type"), {}).get("fields", {})
+		for field in cfields:
+			crow.add_child(_field(condition, field, cfields[field]))
+		var cx := Button.new()
+		cx.text = "✕"
+		cx.pressed.connect(func(): before_change.emit(); event.only_if.erase(condition); rebuild())
+		crow.add_child(cx)
 
 	for action in event.get("do", []):
 		var row := HBoxContainer.new()
@@ -123,12 +156,23 @@ func _event_row(event: Dictionary) -> Control:
 		row.add_child(x)
 	var add_action := Button.new()
 	add_action.text = "+ then do something else"
-	add_action.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	add_action.pressed.connect(func():
 		before_change.emit()
 		event.do.append({"type": "say", "speaker": "Conker", "text": ""})
 		rebuild())
-	box.add_child(add_action)
+	var adds := HBoxContainer.new()
+	box.add_child(adds)
+	adds.add_child(add_action)
+	var add_condition := Button.new()
+	add_condition.text = "+ only if..."
+	add_condition.tooltip_text = "Only run this event when something's true, e.g. Conker has 30 cash.\nOn \"After Conker talks to\", an event whose conditions are met replaces their usual lines."
+	add_condition.pressed.connect(func():
+		before_change.emit()
+		if not event.has("only_if"):
+			event.only_if = []
+		event.only_if.append({"type": "cash_at_least", "amount": 10})
+		rebuild())
+	adds.add_child(add_condition)
 	return panel
 
 
@@ -138,6 +182,10 @@ func _field(action: Dictionary, field: String, kind: String) -> Control:
 			return Rom.music_picker(int(action.get(field, 0)), func(index): action[field] = index)
 		"object":
 			return _object_picker(action.get(field, ""), "", func(uid): action[field] = uid)
+		"who":   # an object, or Conker himself
+			return _object_picker(action.get(field, ""), "", func(uid): action[field] = uid, true)
+		"camera":
+			return _object_picker(action.get(field, ""), "camera", func(uid): action[field] = uid)
 		"level":
 			var option := OptionButton.new()
 			option.add_item("(level)")
@@ -168,10 +216,15 @@ func _field(action: Dictionary, field: String, kind: String) -> Control:
 
 
 # A dropdown of this level's objects, optionally only of one type.
-func _object_picker(current: String, only_type, on_pick: Callable) -> OptionButton:
+func _object_picker(current: String, only_type, on_pick: Callable, with_conker := false) -> OptionButton:
 	var option := OptionButton.new()
 	option.add_item("(choose)")
 	option.set_item_metadata(0, "")
+	if with_conker:
+		option.add_item("Conker")
+		option.set_item_metadata(option.item_count - 1, "conker")
+		if current == "conker":
+			option.select(option.item_count - 1)
 	for obj in level.get("objects", []):
 		if only_type and obj.type != only_type:
 			continue

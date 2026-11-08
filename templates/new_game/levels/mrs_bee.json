@@ -1,0 +1,633 @@
+{
+  "format": "conker-maker-level-v1",
+  "id": "mrs_bee",
+  "title": "Windy: Mrs. Bee's Hive",
+  "base": {
+    "kind": "blank",
+    "ground": {
+      "size": [
+        70,
+        70
+      ],
+      "color": "#6f9a3e"
+    }
+  },
+  "music": {
+    "rom_track": 63
+  },
+  "objects": [
+    {
+      "uid": "start",
+      "type": "player_start",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {}
+    },
+    {
+      "uid": "from_hill",
+      "type": "spawn_point",
+      "position": [
+        0,
+        0,
+        6
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "name": "from_hill"
+      }
+    },
+    {
+      "uid": "mrs_bee",
+      "type": "npc",
+      "position": [
+        6,
+        0,
+        -10
+      ],
+      "rotation_y": 200,
+      "scale": 1.0,
+      "props": {
+        "name": "Mrs. Bee",
+        "model": {
+          "id": "b01-0007-00",
+          "bank": 1,
+          "entry": 7,
+          "segment": 0
+        },
+        "dialogue": [
+          "Oh, please hurry! My poor hive!",
+          "It's up on the hill, where those horrid wasps live."
+        ]
+      }
+    },
+    {
+      "uid": "armed_hive",
+      "type": "prop",
+      "position": [
+        7.6,
+        0,
+        -10.6
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "model": {
+          "id": "b01-0035-00",
+          "bank": 1,
+          "entry": 35,
+          "segment": 0
+        },
+        "solid": false
+      }
+    },
+    {
+      "uid": "reward",
+      "type": "cash",
+      "position": [
+        9.5,
+        0,
+        -7.0
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "amount": 100,
+        "appears_when": "hive_returned",
+        "grab_cutscene": true
+      }
+    },
+    {
+      "uid": "meet",
+      "type": "spot",
+      "position": [
+        3.5,
+        0,
+        -6.5
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {}
+    },
+    {
+      "uid": "hill",
+      "type": "platform",
+      "position": [
+        -18,
+        0,
+        -22
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "size": [
+          10,
+          4,
+          10
+        ],
+        "move": [
+          0,
+          0,
+          0
+        ],
+        "period": 4.0
+      }
+    },
+    {
+      "uid": "step_1",
+      "type": "platform",
+      "position": [
+        -10.5,
+        0,
+        -15.5
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "size": [
+          3,
+          1.4,
+          3
+        ],
+        "move": [
+          0,
+          0,
+          0
+        ],
+        "period": 4.0
+      }
+    },
+    {
+      "uid": "step_2",
+      "type": "platform",
+      "position": [
+        -13,
+        0,
+        -18.5
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "size": [
+          3,
+          2.8,
+          3
+        ],
+        "move": [
+          0,
+          0,
+          0
+        ],
+        "period": 4.0
+      }
+    },
+    {
+      "uid": "hive",
+      "type": "carryable",
+      "position": [
+        -18,
+        4,
+        -22
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "name": "Mrs. Bee's hive",
+        "deliver_to": "mrs_bee",
+        "model": {
+          "id": "b01-0019-00",
+          "bank": 1,
+          "entry": 19,
+          "segment": 0
+        }
+      }
+    },
+    {
+      "uid": "wasp_1",
+      "type": "enemy",
+      "position": [
+        -16,
+        4,
+        -24
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "model": {
+          "id": "b01-0005-00",
+          "bank": 1,
+          "entry": 5,
+          "segment": 0
+        },
+        "health": 1,
+        "patrol_radius": 0,
+        "flying": true,
+        "wakes_when": "hive_taken"
+      }
+    },
+    {
+      "uid": "wasp_2",
+      "type": "enemy",
+      "position": [
+        -20.5,
+        4,
+        -20
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "model": {
+          "id": "b01-0005-00",
+          "bank": 1,
+          "entry": 5,
+          "segment": 0
+        },
+        "health": 1,
+        "patrol_radius": 0,
+        "flying": true,
+        "wakes_when": "hive_taken"
+      }
+    },
+    {
+      "uid": "wasp_3",
+      "type": "enemy",
+      "position": [
+        -20,
+        4,
+        -25
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "model": {
+          "id": "b01-0005-00",
+          "bank": 1,
+          "entry": 5,
+          "segment": 0
+        },
+        "health": 1,
+        "patrol_radius": 0,
+        "flying": true,
+        "wakes_when": "hive_taken"
+      }
+    },
+    {
+      "uid": "cam_wide",
+      "type": "camera",
+      "position": [
+        10,
+        0,
+        4
+      ],
+      "rotation_y": 30.3,
+      "scale": 1.0,
+      "props": {
+        "height": 4.5,
+        "fov": 55
+      },
+      "rotation_x": -14.1
+    },
+    {
+      "uid": "cam_bee",
+      "type": "camera",
+      "position": [
+        4.6,
+        0,
+        -6.4
+      ],
+      "rotation_y": -21.3,
+      "scale": 1.0,
+      "props": {
+        "height": 1.7,
+        "fov": 45
+      },
+      "rotation_x": -7.4
+    },
+    {
+      "uid": "cam_conker",
+      "type": "camera",
+      "position": [
+        6,
+        0,
+        -7.2
+      ],
+      "rotation_y": 105.6,
+      "scale": 1.0,
+      "props": {
+        "height": 1.6,
+        "fov": 45
+      },
+      "rotation_x": -10.9
+    },
+    {
+      "uid": "cam_hill",
+      "type": "camera",
+      "position": [
+        -6,
+        0,
+        -10
+      ],
+      "rotation_y": 45.0,
+      "scale": 1.0,
+      "props": {
+        "height": 6,
+        "fov": 50
+      },
+      "rotation_x": -5.1
+    },
+    {
+      "uid": "cam_return",
+      "type": "camera",
+      "position": [
+        11,
+        0,
+        -3
+      ],
+      "rotation_y": 40.6,
+      "scale": 1.0,
+      "props": {
+        "height": 3,
+        "fov": 55
+      },
+      "rotation_x": -12.2
+    },
+    {
+      "uid": "home",
+      "type": "level_exit",
+      "position": [
+        0,
+        0,
+        10
+      ],
+      "rotation_y": 0,
+      "scale": 1.0,
+      "props": {
+        "target_level": "test_level",
+        "target_spawn": "from_windy"
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "meet",
+      "name": "Meet Mrs. Bee",
+      "cutscene": true,
+      "when": {
+        "type": "level_start"
+      },
+      "do": [
+        {
+          "type": "hide",
+          "object": "armed_hive"
+        },
+        {
+          "type": "camera",
+          "camera": "cam_wide",
+          "seconds": 0
+        },
+        {
+          "type": "move",
+          "object": "conker",
+          "to": "meet",
+          "seconds": 2.2
+        },
+        {
+          "type": "face",
+          "object": "conker",
+          "target": "mrs_bee"
+        },
+        {
+          "type": "face",
+          "object": "mrs_bee",
+          "target": "conker"
+        },
+        {
+          "type": "camera",
+          "camera": "cam_bee",
+          "seconds": 0.8
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee",
+          "text": "Oh, it's terrible! Simply terrible!"
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee",
+          "text": "Some enormous wasps came and stole my hive!"
+        },
+        {
+          "type": "camera",
+          "camera": "cam_conker",
+          "seconds": 0
+        },
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Wasps, eh? Nasty little buggers."
+        },
+        {
+          "type": "camera",
+          "camera": "cam_bee",
+          "seconds": 0
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee",
+          "text": "They took it up the hill. Please, bring it back to me!"
+        },
+        {
+          "type": "camera",
+          "camera": "cam_hill",
+          "seconds": 1.6
+        },
+        {
+          "type": "wait",
+          "seconds": 1.2
+        },
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Up there? Right. How hard can it be?"
+        }
+      ],
+      "only_if": [
+        {
+          "type": "flag_not_set",
+          "flag": "hive_returned"
+        }
+      ]
+    },
+    {
+      "id": "grab",
+      "name": "Grab the hive",
+      "cutscene": true,
+      "when": {
+        "type": "pick_up",
+        "object": "hive"
+      },
+      "do": [
+        {
+          "type": "camera",
+          "camera": "cam_hill",
+          "seconds": 0
+        },
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Got it!"
+        },
+        {
+          "type": "set_flag",
+          "flag": "hive_taken"
+        },
+        {
+          "type": "animate",
+          "object": "wasp_1",
+          "animation": "attack"
+        },
+        {
+          "type": "say",
+          "speaker": "Wasp",
+          "text": "Oi! That's ours! Get him, lads!"
+        }
+      ]
+    },
+    {
+      "id": "return",
+      "name": "Give the hive back",
+      "cutscene": true,
+      "when": {
+        "type": "deliver",
+        "object": "hive"
+      },
+      "do": [
+        {
+          "type": "camera",
+          "camera": "cam_return",
+          "seconds": 0.6
+        },
+        {
+          "type": "face",
+          "object": "mrs_bee",
+          "target": "conker"
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee",
+          "text": "My hive! Oh, you darling squirrel!"
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee",
+          "text": "Now, stand back, dear."
+        },
+        {
+          "type": "hide",
+          "object": "hive"
+        },
+        {
+          "type": "show",
+          "object": "armed_hive"
+        },
+        {
+          "type": "move",
+          "object": "mrs_bee",
+          "to": "armed_hive",
+          "seconds": 0.8
+        },
+        {
+          "type": "hide",
+          "object": "mrs_bee"
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee (in the hive)",
+          "text": "Now, let's see how those wasps like THIS!"
+        },
+        {
+          "type": "shoot",
+          "object": "armed_hive",
+          "target": "wasp_1"
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "shoot",
+          "object": "armed_hive",
+          "target": "wasp_2"
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "shoot",
+          "object": "armed_hive",
+          "target": "wasp_3"
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "camera",
+          "camera": "cam_return",
+          "seconds": 0.6
+        },
+        {
+          "type": "say",
+          "speaker": "Mrs. Bee (in the hive)",
+          "text": "There. Here's a little something for your trouble."
+        },
+        {
+          "type": "set_flag",
+          "flag": "hive_returned"
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "say",
+          "speaker": "Conker",
+          "text": "Ooh! Don't mind if I do."
+        }
+      ]
+    },
+    {
+      "id": "in_the_hive",
+      "name": "Mrs. Bee stays in her hive",
+      "when": {
+        "type": "level_start"
+      },
+      "only_if": [
+        {
+          "type": "flag_set",
+          "flag": "hive_returned"
+        }
+      ],
+      "do": [
+        {
+          "type": "hide",
+          "object": "mrs_bee"
+        },
+        {
+          "type": "hide",
+          "object": "hive"
+        },
+        {
+          "type": "show",
+          "object": "armed_hive"
+        }
+      ]
+    }
+  ]
+}

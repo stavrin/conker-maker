@@ -11,11 +11,14 @@
       "title": "Chapter 1: The Morning After",
       "levels": [
         "test_level",
-        "the_barn"
+        "the_barn",
+        "mrs_bee"
       ]
     }
   ],
   "flags": [
-    "met_barkeep"
+    "met_barkeep",
+    "hive_taken",
+    "hive_returned"
   ]
 }

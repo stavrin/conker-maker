@@ -86,6 +86,35 @@
         }
       }
     },
+    "camera": {
+      "label": "Camera",
+      "group": "Logic",
+      "color": "#9b59d6",
+      "shape": "camera",
+      "help": "A camera angle for cutscenes: it looks the way it's turned and tilted. Events use it with 'Cutscene: cut to a camera'. 'Look through' shows its view in the editor.",
+      "props": {
+        "height": {
+          "kind": "float",
+          "default": 1.6,
+          "min": 0,
+          "max": 50
+        },
+        "fov": {
+          "kind": "float",
+          "default": 55.0,
+          "min": 15,
+          "max": 110
+        }
+      }
+    },
+    "spot": {
+      "label": "Spot",
+      "group": "Logic",
+      "color": "#e0a040",
+      "shape": "spot",
+      "help": "A place for cutscenes to move characters (or Conker) to.",
+      "props": {}
+    },
     "context_pad": {
       "label": "Context Pad (B)",
       "group": "Logic",
@@ -109,7 +138,7 @@
       "group": "Pickups",
       "color": "#4caf50",
       "shape": "cash",
-      "help": "Money for Conker's wallet.",
+      "help": "Money for Conker's wallet. Make it a quest reward with 'Appears when' (it shows up once a story flag is set) and 'Grab cutscene'.",
       "props": {
         "amount": {
           "kind": "int",
@@ -120,6 +149,16 @@
         "model": {
           "kind": "rom_model",
           "default": null
+        },
+        "appears_when": {
+          "kind": "flag",
+          "default": "",
+          "help": "Hidden until this story flag is set (a quest's reward). Empty: there from the start."
+        },
+        "grab_cutscene": {
+          "kind": "bool",
+          "default": false,
+          "help": "Conker grabs it in a short cutscene, eyes turning to dollar signs."
         }
       },
       "rom_model": "b09-0164-00"
@@ -152,6 +191,28 @@
       },
       "rom_model": "b09-0162-00"
     },
+    "carryable": {
+      "label": "Carried Item",
+      "group": "Pickups",
+      "color": "#d9a441",
+      "shape": "crate",
+      "help": "Something Conker picks up by walking into it and carries above his head (like Mrs. Bee's hive). Taking it to 'Deliver to' fires 'When Conker delivers'.",
+      "props": {
+        "name": {
+          "kind": "text",
+          "default": "Hive"
+        },
+        "deliver_to": {
+          "kind": "object",
+          "default": ""
+        },
+        "model": {
+          "kind": "rom_model",
+          "default": null
+        }
+      },
+      "rom_model": "b01-0019-00"
+    },
     "npc": {
       "label": "Character",
       "group": "Characters",
@@ -180,7 +241,7 @@
       "group": "Characters",
       "color": "#b02a2a",
       "shape": "capsule",
-      "help": "A baddie that wanders near where it's placed, chases Conker and attacks him up close. Two frying-pan hits (or its health) finish it.",
+      "help": "A baddie that wanders near where it's placed, chases Conker and attacks him up close. Two frying-pan hits (or its health) finish it. Flying ones (wasps) chase at his height; 'Wakes when' keeps it still until a story flag is set.",
       "props": {
         "model": {
           "kind": "rom_model",
@@ -197,9 +258,40 @@
           "default": 4.0,
           "min": 0,
           "max": 50
+        },
+        "flying": {
+          "kind": "bool",
+          "default": false,
+          "help": "Flies at Conker's height instead of walking (wasps)."
+        },
+        "wakes_when": {
+          "kind": "flag",
+          "default": "",
+          "help": "Stays put, ignoring Conker, until this story flag is set; then chases him anywhere."
         }
       },
       "rom_model": "b01-0090-00"
+    },
+    "game_actor": {
+      "label": "Game Actor",
+      "group": "Characters",
+      "color": "#c070e0",
+      "shape": "capsule",
+      "help": "One of Bad Fur Day's own characters or things, by its actor number, placed into the real game by the runtime mod. Only appears in levels built on a game scene; the editor shows a stand-in. (Actor numbers are still being named: see docs/ACTORS.md.)",
+      "props": {
+        "actor": {
+          "kind": "int",
+          "default": 90,
+          "min": 0,
+          "max": 186,
+          "help": "The game's actor number (0-186). Its look and behaviour come from the game, not from Conker Maker."
+        },
+        "name": {
+          "kind": "text",
+          "default": "",
+          "help": "Your own label for it."
+        }
+      }
     },
     "prop": {
       "label": "Prop",
@@ -260,11 +352,28 @@
           "default": null
         }
       }
+    },
+    "water": {
+      "label": "Water",
+      "group": "Scenery",
+      "color": "#2f86d8",
+      "shape": "water",
+      "help": "A pool of water Conker can swim in. Its position is the middle of the bottom; the top is the surface. Space jumps out, C dives, and underwater Space swims up. He can hold his breath for a while.",
+      "props": {
+        "size": {
+          "kind": "vec3",
+          "default": [
+            8,
+            3,
+            8
+          ]
+        }
+      }
     }
   },
   "player": {
     "model": "b01-0000-00",
-    "note": "Conker's animations, by the ROM's animation pair (bank-02 route). Logical animation numbers are the game's own: 15 idle, 4 impatient idle, 1 walk, 2 run, 6 jump, 70 frying pan. Found by rendering them; change a pair here if one looks wrong.",
+    "note": "Conker's animations, by the ROM's animation pair (bank-02 route). Logical animation numbers are the game's own: 15 idle, 4 impatient idle, 1 walk, 2 run, 6 jump, 70 frying pan. Found by rendering them; change a pair here if one looks wrong. Swimming: 37 treading water at the surface, 205 swimming at the surface, 29 swimming underwater.",
     "animations": {
       "idle": "pair_0007_",
       "bored": "pair_0024_",
@@ -272,7 +381,13 @@
       "run": "pair_0001_",
       "jump": "pair_0003_",
       "hover": "pair_0020_",
-      "attack": "pair_0078_"
+      "attack": "pair_0078_",
+      "hang": "pair_0043_",
+      "climb": "pair_0380_",
+      "swim_idle": "pair_0037_",
+      "swim": "pair_0205_",
+      "dive": "pair_0034_",
+      "dive_idle": "pair_0029_"
     },
     "frying_pan": {
       "model": "b09-0024-00",
@@ -281,7 +396,30 @@
       "shown_until": 1.0,
       "hit_at": 0.35
     },
-    "hover_speed": 2.2
+    "hover_speed": 2.2,
+    "ledge": {
+      "note": "Ledge grab: a ledge between 'lowest' and 'reach' metres above Conker's feet can be caught when he jumps at it. He hangs with his feet 'hang_drop' metres below its top, 'hang_out' metres out from the wall, and climbs up in 'climb_time' seconds.",
+      "lowest": 1.1,
+      "reach": 2.1,
+      "hang_drop": 1.62,
+      "climb_time": 0.9,
+      "hang_out": 0.18
+    },
+    "swim": {
+      "note": "Swimming in Water objects. At the surface Conker floats with his middle 'surface_sink' metres under the top. Speeds are metres a second. He can stay under for 'air_time' seconds, then loses a slice of health every 'drown_every' seconds until he comes up.",
+      "surface_sink": 0.25,
+      "surface_speed": 4.0,
+      "dive_speed": 3.5,
+      "rise_speed": 3.0,
+      "air_time": 12.0,
+      "drown_every": 2.0,
+      "jump_out": 9.0,
+      "climb_out": 1.3
+    },
+    "animation_turns": {
+      "note": "Animations that face the other way in the ROM: degrees to turn Conker while they play.",
+      "dive": 180
+    }
   },
   "events": {
     "triggers": {
@@ -308,6 +446,14 @@
       "all_cash": {
         "label": "When all the cash is collected",
         "object": false
+      },
+      "pick_up": {
+        "label": "When Conker picks up",
+        "object": "carryable"
+      },
+      "deliver": {
+        "label": "When Conker delivers",
+        "object": "carryable"
       }
     },
     "actions": {
@@ -320,6 +466,12 @@
       },
       "give_cash": {
         "label": "Give Conker cash",
+        "fields": {
+          "amount": "int"
+        }
+      },
+      "take_cash": {
+        "label": "Take cash from Conker",
         "fields": {
           "amount": "int"
         }
@@ -360,8 +512,75 @@
         "fields": {
           "seconds": "float"
         }
+      },
+      "camera": {
+        "label": "Cutscene: cut to a camera",
+        "fields": {
+          "camera": "camera",
+          "seconds": "float"
+        }
+      },
+      "camera_back": {
+        "label": "Cutscene: back to the follow camera",
+        "fields": {}
+      },
+      "move": {
+        "label": "Move someone to a spot",
+        "fields": {
+          "object": "who",
+          "to": "object",
+          "seconds": "float"
+        }
+      },
+      "face": {
+        "label": "Turn someone to face",
+        "fields": {
+          "object": "who",
+          "target": "who"
+        }
+      },
+      "animate": {
+        "label": "Play someone's animation",
+        "fields": {
+          "object": "who",
+          "animation": "text"
+        }
+      },
+      "defeat": {
+        "label": "Defeat an enemy",
+        "fields": {
+          "object": "object"
+        }
+      },
+      "shoot": {
+        "label": "Shoot at an enemy",
+        "fields": {
+          "object": "who",
+          "target": "object"
+        }
       }
-    }
+    },
+    "conditions": {
+      "cash_at_least": {
+        "label": "Conker has at least this much cash",
+        "fields": {
+          "amount": "int"
+        }
+      },
+      "flag_set": {
+        "label": "A story flag is set",
+        "fields": {
+          "flag": "text"
+        }
+      },
+      "flag_not_set": {
+        "label": "A story flag isn't set yet",
+        "fields": {
+          "flag": "text"
+        }
+      }
+    },
+    "note": "Actions run one after another. Tick 'Cutscene' on an event to play it as one: black bars, Conker waits, cameras can take over, Tab skips. 'who' fields can pick Conker. 'animation' is idle, walk, run, attack, hurt, die (or, for Conker, any name in player.animations, or a ROM pair like pair_0037_)."
   },
   "character_animations": {
     "note": "Which animation pair each character uses for idle, walk, run, attack, hurt and die, checked by rendering them. Characters not listed get theirs worked out from the poses; characters stored without animations (the Tedi soldiers, the Tedi General...) borrow a look-alike's, so its entry applies to them too.",
