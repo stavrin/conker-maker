@@ -21,7 +21,7 @@ the console."""
 short_description = "Plays games made with Conker Maker."
 authors = [ "Conker Maker" ]
 game_id = "conker"
-minimum_recomp_version = "0.3.0"
+minimum_recomp_version = "0.1.0"
 dependencies = []
 optional_dependencies = []
 native_libraries = []

@@ -7,6 +7,8 @@ const Main := preload("res://scripts/main.gd")
 
 var status: Label
 var dialog: FileDialog
+var heading := "Conker Maker"
+var intro := ""   # what to say instead of the editor's explanation (the exported player sets it)
 
 
 func _ready() -> void:
@@ -19,8 +21,8 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
 	panel.add_child(box)
-	box.add_child(Main.title_label("Conker Maker", 40))
-	box.add_child(Main.note_label(
+	box.add_child(Main.title_label(heading, 40))
+	box.add_child(Main.note_label(intro if intro != "" else
 		"Conker Maker builds games on top of Conker's Bad Fur Day, so it needs your own copy of the game.\n\n"
 		+ "Pick your US ROM (.z64, .v64 or .n64). The uncensored hack works too. It stays on your computer; "
 		+ "Conker Maker reads models, textures and sounds from it and never shares it."))

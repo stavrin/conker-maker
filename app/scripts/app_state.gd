@@ -25,11 +25,26 @@ var catalog := {}
 var project_dir := ""
 var game := {}          # game.json
 var levels := {}        # id -> level dict
+# Set when this copy runs as a game's player rather than as the editor: an exported game keeps
+# its project in game/ next to the executable (or pass --play <project folder>).
+var player_dir := ""
 
 
 func _ready() -> void:
 	load_settings()
 	catalog = _read_json(catalog_path())
+	player_dir = _find_player_game()
+
+
+func _find_player_game() -> String:
+	var args := OS.get_cmdline_user_args() + OS.get_cmdline_args()
+	var i := args.find("--play")
+	if i >= 0 and i + 1 < args.size() and FileAccess.file_exists(args[i + 1].path_join("game.json")):
+		return args[i + 1]
+	var beside := OS.get_executable_path().get_base_dir().path_join("game")
+	if not OS.has_feature("editor") and FileAccess.file_exists(beside.path_join("game.json")):
+		return beside
+	return ""
 
 
 # --- paths -----------------------------------------------------------------------------------
@@ -39,7 +54,11 @@ func _ready() -> void:
 func maker_root() -> String:
 	if OS.has_feature("editor"):
 		return ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
-	return OS.get_executable_path().get_base_dir()
+	var here := OS.get_executable_path().get_base_dir()
+	# The player .exe run from conker-maker/player/ is Conker Maker itself: the tools are one up.
+	if not DirAccess.dir_exists_absolute(here.path_join("catalog")) and DirAccess.dir_exists_absolute(here.path_join("../catalog")):
+		return here.path_join("..").simplify_path()
+	return here
 
 
 func catalog_path() -> String:
@@ -113,7 +132,7 @@ func run_cmtools(args: Array) -> Dictionary:
 
 # --- projects --------------------------------------------------------------------------------
 
-func open_project(dir: String) -> String:
+func open_project(dir: String, remember := true) -> String:
 	var g = _read_json(dir.path_join("game.json"))
 	if not g is Dictionary:
 		return "That folder has no game.json."
@@ -127,6 +146,8 @@ func open_project(dir: String) -> String:
 				var level = _read_json(dir.path_join("levels").path_join(file_name))
 				if level is Dictionary:
 					levels[level.get("id", file_name.get_basename())] = level
+	if not remember:
+		return ""
 	var recent: Array = settings.recent_projects
 	recent.erase(dir)
 	recent.push_front(dir)

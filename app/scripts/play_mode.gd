@@ -17,6 +17,7 @@
 extends Node3D
 
 signal finished
+signal level_entered(id: String, spawn: String)   # (the exported player saves here)
 
 const Visuals := preload("res://scripts/visuals.gd")
 const SPEED := 7.0
@@ -44,6 +45,7 @@ var cash := 0
 var health := 6
 var lives := 3
 var flags := {}
+var collected := {}         # "level/uid" -> true: pickups taken stay taken across levels
 var hidden := {}            # uid -> true
 var fired := {}             # event id -> true (zones fire once)
 var objects := {}           # uid -> {obj, node}
@@ -202,6 +204,8 @@ func start(id: String, spawn := "") -> void:
 		if obj.type == "cash" and reward_flag != "" and not flags.has(reward_flag):
 			waiting[obj.uid] = reward_flag   # a quest's reward: hidden until the flag is set
 			_hide(obj.uid)
+		if collected.has(id + "/" + str(obj.uid)):
+			_hide(obj.uid)
 		if obj.type == "player_start" and spawn == "":
 			start_pos = node.position
 			start_turn = node.rotation.y
@@ -214,7 +218,22 @@ func start(id: String, spawn := "") -> void:
 	_play_music(int(level.get("music", {}).get("rom_track", 0)))
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_update_hud()
+	level_entered.emit(id, spawn)
 	_run_trigger("level_start", "")
+
+
+# Progress, for saving and loading a game: where Conker is and what he's done.
+func get_state(spawn := "") -> Dictionary:
+	return {"level": level_id, "spawn": spawn, "cash": cash, "lives": lives, "health": health,
+			"flags": flags.duplicate(), "collected": collected.duplicate()}
+
+
+func set_state(state: Dictionary) -> void:
+	cash = int(state.get("cash", 0))
+	lives = int(state.get("lives", 3))
+	health = int(state.get("health", 6))
+	flags = (state.get("flags", {}) as Dictionary).duplicate()
+	collected = (state.get("collected", {}) as Dictionary).duplicate()
 
 
 # Things placed on top of a moving platform ride along with it.
@@ -1166,6 +1185,7 @@ func _talk(uid: String, obj: Dictionary) -> void:
 
 func _collect(uid: String, obj: Dictionary) -> void:
 	_hide(uid)
+	collected[level_id + "/" + uid] = true
 	match obj.type:
 		"cash":
 			if bool(obj.props.get("grab_cutscene", false)):

@@ -103,6 +103,8 @@ static func build(obj: Dictionary, spec: Dictionary, pickable := true) -> Node3D
 	var model_id := model_id_for(obj, spec)
 	var model: Node3D = Rom.instance_model(model_id) if model_id != "" else null
 	if model:
+		if spec.has("rom_anim") and model_id == str(spec.get("rom_model", "")):
+			info.anim = spec.rom_anim   # the type's own model plays its own idle (the cash's sway)
 		info = fit_model(model, info)
 		root.add_child(info.node)
 		root.set_meta("model", info.node)

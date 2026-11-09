@@ -121,7 +121,7 @@ func _toolbar() -> Control:
 	level_picker.item_selected.connect(func(i): open_level(level_picker.get_item_metadata(i)))
 	bar.add_child(level_picker)
 	for spec in [["+ Level", _ask_new_level], ["Save", _save], ["Undo", undo], ["Check", _validate],
-			["▶ Play here", _play], ["Build", _build], ["▶ Playtest in recomp", _playtest]]:
+			["▶ Play here", _play], ["▶ Play as a game", _play_as_game], ["Export game...", _ask_export]]:
 		var b := Button.new()
 		b.text = spec[0]
 		b.pressed.connect(spec[1])
@@ -479,6 +479,109 @@ func _playtest() -> void:
 	var pid := OS.create_process(App.settings.recomp_exe, [_last_rom])
 	log_line("Started the recomp (pid %d) with your built ROM." % pid)
 	log_line("[color=#e8c07a]Note: until the obd_core runtime mod can load your levels into the game (milestone 3), the recomp plays Bad Fur Day from this ROM; it confirms the ROM builds and is accepted.[/color]")
+
+
+# --- the exported game ----------------------------------------------------------------------------
+
+# Runs the project the way players will get it (title screen, saves, pause menu), in its own window.
+func _play_as_game() -> void:
+	_save()
+	var args := ["--play", App.project_dir]
+	if OS.has_feature("editor"):
+		args = ["--path", ProjectSettings.globalize_path("res://"), "--"] + args
+	var pid := OS.create_process(OS.get_executable_path(), args)
+	if pid <= 0:
+		log_line("[color=#ff8a7a]Couldn't start the game window (%s %s).[/color]" % [OS.get_executable_path(), " ".join(args)])
+		return
+	log_line("Started '%s' as a game in its own window (it can take a few seconds to appear)." % App.game.get("title", ""))
+
+
+func _ask_export() -> void:
+	log_line("Export game: checking the game first...")
+	if not _validate():
+		log_line("Fix the problems above, then export again.")
+		return
+	log_line("Choose an empty folder for the exported game (or make a new one in the folder picker).")
+	var dialog := FileDialog.new()
+	dialog.use_native_dialog = true   # Windows' own folder picker
+	dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.title = "Pick an empty folder for the exported game"
+	dialog.dir_selected.connect(func(dir):
+		dialog.queue_free()
+		_export_game(dir))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered_ratio(0.7)
+
+
+# The player executable: this one, if Conker Maker itself is exported, else the prebuilt player.
+static func player_exe() -> String:
+	if not OS.has_feature("editor"):
+		return OS.get_executable_path()
+	for name in ["ConkerMakerPlayer.exe", "ConkerMakerPlayer.x86_64"]:
+		var path := App.maker_root().path_join("player").path_join(name)
+		if FileAccess.file_exists(path):
+			return path
+	return ""
+
+
+# A folder anyone can play from: the player, game/ (this project), catalog/ and cmtools/ (to read
+# the player's own ROM). No ROM data goes in.
+func _export_game(dest: String) -> void:
+	_save()
+	var exe := player_exe()
+	if exe == "":
+		log_line("[color=#ff8a7a]The player program is missing: put ConkerMakerPlayer.exe in %s.[/color]"
+				% App.maker_root().path_join("player"))
+		return
+	var existing := DirAccess.open(dest)
+	if existing and (existing.get_files().size() > 0 or existing.get_directories().size() > 0):
+		log_line("[color=#ff8a7a]Pick an empty folder to export into.[/color]")
+		return
+	var title := str(App.game.get("title", "Conker Maker game"))
+	var exe_name := _file_name(title) + "." + exe.get_extension() if exe.get_extension() != "" else _file_name(title)
+	DirAccess.make_dir_recursive_absolute(dest)
+	var err := DirAccess.copy_absolute(exe, dest.path_join(exe_name))
+	if err != OK:
+		log_line("[color=#ff8a7a]Couldn't copy the player (%s).[/color]" % error_string(err))
+		return
+	_copy_tree(App.project_dir, dest.path_join("game"), ["build"])
+	_copy_tree(App.maker_root().path_join("catalog"), dest.path_join("catalog"), [])
+	_copy_tree(App.maker_root().path_join("cmtools"), dest.path_join("cmtools"), ["__pycache__"])
+	var readme := FileAccess.open(dest.path_join("README.txt"), FileAccess.WRITE)
+	readme.store_string(("%s\n\nA game made with Conker Maker. To play it you need your own copy of Conker's Bad Fur Day "
+			+ "(the US ROM: .z64, .v64 or .n64). Nothing from the original game is included here.\n\n"
+			+ "1. Run %s.\n2. Pick your ROM.\n3. The first time, it reads the game's models, textures and sounds from your ROM. "
+			+ "That takes a few minutes and needs Python 3.12 or newer (python.org; tick 'Add python.exe to PATH') "
+			+ "and an internet connection, once.\n\nControls are on the title screen. Saves are kept in your user folder.\n\n"
+			+ "Conker's Bad Fur Day is (c) Rare Ltd. This is an unofficial fan game, not affiliated with or endorsed by Rare, "
+			+ "Microsoft or Nintendo.\n") % [title, exe_name])
+	readme.close()
+	log_line("[color=#7fd37f]Exported '%s' to %s[/color]\nZip that folder to share it. Players run %s and pick their own ROM." % [title, dest, exe_name])
+
+
+func _copy_tree(from: String, to: String, skip: Array) -> void:
+	DirAccess.make_dir_recursive_absolute(to)
+	var dir := DirAccess.open(from)
+	if dir == null:
+		return
+	for file_name in dir.get_files():
+		if file_name.ends_with(".pyc"):
+			continue
+		DirAccess.copy_absolute(from.path_join(file_name), to.path_join(file_name))
+	for sub in dir.get_directories():
+		if sub in skip or sub.begins_with("."):
+			continue
+		_copy_tree(from.path_join(sub), to.path_join(sub), skip)
+
+
+static func _file_name(text: String) -> String:
+	var out := ""
+	for c in text:
+		out += c if not c in ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"] else " "
+	out = out.strip_edges()
+	return out if out != "" else "Game"
 
 
 func log_line(text: String) -> void:

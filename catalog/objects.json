@@ -161,7 +161,8 @@
           "help": "Conker grabs it in a short cutscene, eyes turning to dollar signs."
         }
       },
-      "rom_model": "b09-0164-00"
+      "rom_model": "b01-0060-00",
+      "rom_anim": "pair_0000_"
     },
     "chocolate": {
       "label": "Chocolate",
@@ -386,7 +387,7 @@
       "climb": "pair_0380_",
       "swim_idle": "pair_0037_",
       "swim": "pair_0205_",
-      "dive": "pair_0034_",
+      "dive": "pair_0115_",
       "dive_idle": "pair_0029_"
     },
     "frying_pan": {
@@ -417,8 +418,7 @@
       "climb_out": 1.3
     },
     "animation_turns": {
-      "note": "Animations that face the other way in the ROM: degrees to turn Conker while they play.",
-      "dive": 180
+      "note": "Animations that face the other way in the ROM: degrees to turn Conker while they play."
     }
   },
   "events": {

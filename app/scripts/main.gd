@@ -4,6 +4,7 @@ extends Control
 const RomGate := preload("res://scripts/rom_gate.gd")
 const Hub := preload("res://scripts/hub.gd")
 const Editor := preload("res://scripts/editor.gd")
+const Player := preload("res://scripts/player.gd")
 
 var current: Control
 
@@ -14,7 +15,9 @@ func _ready() -> void:
 	bg.color = Color("1e1712")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
-	if App.has_valid_rom():
+	if App.player_dir != "":   # an exported game: no editor, just the game
+		switch_to(Player.new())
+	elif App.has_valid_rom():
 		show_hub()
 	else:
 		show_rom_gate()

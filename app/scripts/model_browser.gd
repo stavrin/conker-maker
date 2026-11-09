@@ -20,6 +20,10 @@ var selected_id := ""
 var only_category := ""   # set before showing to start on a category
 var on_pick := Callable()  # who gets the choice this time
 var levels_mode := false   # browsing whole levels instead of models
+var anim_row: HBoxContainer
+var anim_picker: OptionButton
+var anim_player: AnimationPlayer
+var turn_box: CheckBox
 
 
 func _init() -> void:
@@ -93,6 +97,27 @@ func _ready() -> void:
 	right.add_child(title_label)
 	info_label = Main.note_label("")
 	right.add_child(info_label)
+	# Step through a model's animations (Conker has hundreds): the number is what player.animations
+	# in catalog/objects.json and the 'animate' action take, as pair_NNNN_.
+	anim_row = HBoxContainer.new()
+	anim_row.visible = false
+	right.add_child(anim_row)
+	var prev := Button.new()
+	prev.text = "◀"
+	prev.pressed.connect(func(): _step_anim(-1))
+	anim_row.add_child(prev)
+	anim_picker = OptionButton.new()
+	anim_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	anim_picker.item_selected.connect(func(_i): _play_anim())
+	anim_row.add_child(anim_picker)
+	var next := Button.new()
+	next.text = "▶"
+	next.pressed.connect(func(): _step_anim(1))
+	anim_row.add_child(next)
+	turn_box = CheckBox.new()
+	turn_box.text = "Turn"
+	turn_box.button_pressed = true
+	anim_row.add_child(turn_box)
 	var buttons := HBoxContainer.new()
 	right.add_child(buttons)
 	use_button = Button.new()
@@ -112,7 +137,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if holder and visible:
+	if holder and visible and (turn_box == null or turn_box.button_pressed or levels_mode):
 		holder.rotation.y += delta * 0.6
 
 
@@ -185,9 +210,44 @@ func _show(id: String) -> void:
 	camera.look_at(center)
 	camera.near = radius * 0.01
 	camera.far = radius * 50.0
+	_list_anims(model)
+
+
+func _list_anims(model: Node) -> void:
+	anim_player = Rom.animation_player(model) if model else null
+	anim_picker.clear()
+	anim_row.visible = anim_player != null
+	if anim_player == null:
+		return
+	var names := Array(anim_player.get_animation_list())
+	names.sort()
+	for n in names:
+		var pair := RegEx.create_from_string("pair_(\\d+)_").search(n)
+		var label: String = ("pair_%s_" % pair.get_string(1)) if pair else n
+		anim_picker.add_item("%s   (%.1f s)" % [label, anim_player.get_animation(n).length])
+		anim_picker.set_item_metadata(anim_picker.item_count - 1, n)
+	if anim_picker.item_count > 0:
+		anim_picker.select(0)
+		_play_anim()
+
+
+func _step_anim(by: int) -> void:
+	if anim_picker.item_count == 0:
+		return
+	anim_picker.select(wrapi(anim_picker.selected + by, 0, anim_picker.item_count))
+	_play_anim()
+
+
+func _play_anim() -> void:
+	if anim_player == null or anim_picker.selected < 0:
+		return
+	var n: String = anim_picker.get_item_metadata(anim_picker.selected)
+	anim_player.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+	anim_player.play(n)
 
 
 func _show_level(id: String) -> void:
+	anim_row.visible = false
 	var lvl: Dictionary = Rom.scenes.get(id, {})
 	title_label.text = "%d: %s" % [lvl.get("index", 0), lvl.get("name", id)]
 	info_label.text = "%d faces · %s" % [lvl.get("faces", 0), "reviewed selection" if lvl.get("reviewed", false)

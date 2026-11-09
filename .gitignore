@@ -9,3 +9,7 @@ build/
 
 # The asset extractors cmtools downloads on first import.
 third_party/
+
+# The exported player (over 100 MB: too big for GitHub; re-export with app/export_presets.cfg).
+player/*.exe
+player/*.x86_64

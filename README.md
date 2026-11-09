@@ -77,7 +77,28 @@ python -m cmtools apply "path\to\rom.z64" my_game\build\Conkers_Other_Bad_Day.bp
 python -m unittest discover tests         (set CONKER_ROM=path to also test with your ROM)
 ```
 
-## Building the runtime mod
+## Exporting a game
+
+**Export game...** in the editor makes a folder anyone can play from: your game's executable
+(the Conker Maker player, named after your game), `game/` (your project), `catalog/` and
+`cmtools/`. Zip it up to share it. None of Bad Fur Day's data goes in: on first launch the player
+asks for the player's own ROM and reads the models, textures and sounds from it (the same import
+the editor does; it needs Python 3.12+ and the internet once). Then there's a title screen, the
+game, an Esc pause menu and saving (games save as you enter each level, and from the pause menu).
+
+**▶ Play as a game** runs your project that way, in its own window, without exporting.
+
+The player is `player/ConkerMakerPlayer.exe`. It's too big for GitHub, so it isn't in the repo:
+make it in Godot with **Project > Export > Windows Desktop** (export templates needed), or
+headless: `godot --headless --path app --export-release "Windows Desktop" ../player/ConkerMakerPlayer.exe`.
+It's the whole app: next to a `game/` folder it plays that game; otherwise it's Conker Maker.
+
+## The recomp runtime mod (shelved)
+
+An experiment in playing Conker Maker levels inside CBFD-Recompiled. On hold: games are played
+with the exported player instead. See docs/ACTORS.md for what was learned.
+
+### Building it
 
 On Linux, macOS or WSL, with a CBFD-Recompiled checkout whose `RecompModTool` is built:
 

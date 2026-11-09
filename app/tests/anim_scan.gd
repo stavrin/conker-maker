@@ -26,13 +26,20 @@ func _ready() -> void:
 		ap.play(name)
 		var tilts := []
 		var heights := []
+		var along := Vector3.ZERO
+		var face := Vector3.ZERO
 		for i in 9:
 			ap.seek(anim.length * i / 8.0, true)
 			var h := sk.get_bone_global_pose(head).origin
 			var f := (sk.get_bone_global_pose(feet[0]).origin + sk.get_bone_global_pose(feet[1]).origin) / 2.0
 			var v := h - f
 			tilts.append(rad_to_deg(v.angle_to(Vector3.UP)))
+			along += v.normalized()
+			var r := sk.get_bone_global_pose(head).basis * sk.get_bone_global_rest(head).basis.inverse()
+			face += r * Vector3(0, 0, 1)
 			heights.append(h.y)
-		out.store_line("%s\t%.2f\t%d\t%.0f\t%.0f\t%.0f" % [name, anim.length, anim.loop_mode, tilts.min(), tilts.max(), (tilts[0]+tilts[4]+tilts[8])/3.0])
+		along = along.normalized()
+		face = face.normalized()
+		out.store_line("%s\t%.2f\t%d\t%.0f\t%.0f\t%.0f\thead-from-feet %.2f %.2f %.2f\tface %.2f %.2f %.2f" % [name, anim.length, anim.loop_mode, tilts.min(), tilts.max(), (tilts[0]+tilts[4]+tilts[8])/3.0, along.x, along.y, along.z, face.x, face.y, face.z])
 	out.close()
 	get_tree().quit()
